@@ -4,6 +4,7 @@ from PIL import Image
 import torch
 from torch.utils.data import Dataset
 import torchvision.transforms as T
+import torch.nn.functional as F
 
 class VideoFrameDataset(Dataset):
     """
@@ -28,6 +29,7 @@ class VideoFrameDataset(Dataset):
                  labels=None,
                  transform=None,
                  modality='rgb',
+                 repeat_channels=False,
                  frames_per_clip=128,
                  sampling='uniform',
                  frame_ext='png',
@@ -37,6 +39,7 @@ class VideoFrameDataset(Dataset):
         self.labels = labels if labels is None else {str(k): int(v) for k,v in labels.items()}
         self.transform = transform
         self.modality = modality
+        self.repeat_channels = repeat_channels
         self.frames_per_clip = frames_per_clip
         self.sampling = sampling
         self.frame_ext = frame_ext.lower()
@@ -98,18 +101,22 @@ class VideoFrameDataset(Dataset):
                         img_t = img_t.repeat(3, 1, 1)  # -> 3xHxW
 
                 elif self.modality == 'depth':
-                    # 试图保留 16-bit/原始深度值（使用 numpy 读取更稳健）
-                    arr = np.array(img)  # 可能是 uint16 或 uint8 或 float
-                    arr = arr.astype(np.float32)
-                    maxv = arr.max() if arr.max() > 0 else 1.0
-                    arr = arr / maxv   # 归一化到 [0,1]
-                    # 转为 PIL 再变成 tensor（或直接转 tensor）
-                    img_t = torch.from_numpy(arr).unsqueeze(0)  # 1 x H x W
+                    img = img.convert('L')
+                    img_t = self.transform(img) if self.transform else T.ToTensor()(img)
                     if self.repeat_channels:
-                        img_t = img_t.repeat(3, 1, 1)  # -> 3 x H x W
-                    else:
-                        # 保持单通道 1xHxW
-                        pass
+                        img_t = img_t.repeat(3, 1, 1)  # -> 3xHxW
+                    # # 试图保留 16-bit/原始深度值（使用 numpy 读取更稳健）
+                    # arr = np.array(img)  # 可能是 uint16 或 uint8 或 float
+                    # arr = arr.astype(np.float32)
+                    # maxv = arr.max() if arr.max() > 0 else 1.0
+                    # arr = arr / maxv   # 归一化到 [0,1]
+                    # # 转为 PIL 再变成 tensor（或直接转 tensor）
+                    # img_t = torch.from_numpy(arr).unsqueeze(0)  # 1 x H x W
+                    # if self.repeat_channels:
+                    #     img_t = img_t.repeat(3, 1, 1)  # -> 3 x H x W
+                    # else:
+                    #     # 保持单通道 1xHxW
+                    #     pass
                 else:
                     raise ValueError("Unsupported modality")
             frames.append(img_t)

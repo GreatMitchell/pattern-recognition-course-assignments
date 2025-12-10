@@ -13,7 +13,7 @@ class Paths:
     TEST_LABELS_PATH = os.path.join(RAW_DATA_ROOT, "test_200", "test_videofolder_200.txt")
 
     @classmethod
-    def modify_root_dir(cls, new_root="/home/data/"):
+    def modify_root_dir(cls, new_root="/home/aistudio/my_data/"):
         cls.RAW_DATA_ROOT = new_root
         cls.RGB_TRAIN_DIR = os.path.join(new_root, "train_500", "rgb_data")
         cls.DEPTH_TRAIN_DIR = os.path.join(new_root, "train_500", "depth_data")
