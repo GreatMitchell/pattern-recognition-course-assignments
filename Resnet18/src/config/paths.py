@@ -1,7 +1,7 @@
 import os
 
 class Paths:
-    RAW_DATA_ROOT = "D:/Python/pattern-recognition-course-assignments/data"
+    RAW_DATA_ROOT = "/root/autodl-tmp/data" if os.name == 'posix' else "D:/Python/pattern-recognition-course-assignments/data"
     RGB_TRAIN_DIR = os.path.join(RAW_DATA_ROOT, "train_500", "rgb_data")
     DEPTH_TRAIN_DIR = os.path.join(RAW_DATA_ROOT, "train_500", "depth_data")
     INFRARED_TRAIN_DIR = os.path.join(RAW_DATA_ROOT, "train_500", "ir_data")

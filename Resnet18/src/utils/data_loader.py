@@ -9,7 +9,7 @@ import random
 class MultiModalDataset(torch.utils.data.Dataset):
     """
     Wrap three VideoFrameDataset instances returning aligned multi-modal items.
-    每个 __getitem__ 返回 dict: {'rgb': Tensor(T,C,H,W), 'depth': ..., 'infrared': ..., 'label': int, 'length': int}
+    每个 __getitem__ 返回 dict: {'rgb': Tensor(T,C,H,W), 'depth': ..., 'infrared': ..., 'label': int, 'length': int, 'id': int}
     注意：假设 sample_ids 在三个模态下是一致并且 VideoFrameDataset 的 sample_ids 顺序相同。
     """
     def __init__(self, rgb_dataset, depth_dataset, infrared_dataset):
@@ -33,7 +33,8 @@ class MultiModalDataset(torch.utils.data.Dataset):
             'depth': item_d['frames'],
             'infrared': item_ir['frames'],
             'label': item_r['label'],        # 假设 label 一致
-            'length': item_r['length']       # 假设长度一致（采样策略相同）
+            'length': item_r['length'],      # 假设长度一致（采样策略相同）
+            'id': self.rgb_ds.sample_ids[idx]
         }
 
 def video_multimodal_collate_fn(batch):
@@ -45,6 +46,7 @@ def video_multimodal_collate_fn(batch):
       infrared: Tensor(B, T, C, H, W)
       lengths: Tensor(B,)
       labels: Tensor(B,)
+      id: list of sample ids
     """
     import torch
     # reuse earlier collate logic but for all three modalities
@@ -77,7 +79,7 @@ def video_multimodal_collate_fn(batch):
             rgb_out[i, :L] = r[:L]
             depth_out[i, :L] = d[:L]
             ir_out[i, :L] = ir[:L]
-    return {'rgb': rgb_out, 'depth': depth_out, 'infrared': ir_out, 'lengths': torch.tensor(lengths, dtype=torch.long), 'labels': labels}
+    return {'rgb': rgb_out, 'depth': depth_out, 'infrared': ir_out, 'lengths': torch.tensor(lengths, dtype=torch.long), 'labels': labels, 'ids': [item['id'] for item in batch]}
 
 
 class DataLoader:
@@ -111,14 +113,14 @@ class DataLoader:
 
         Parameters:
         ----------
-        set (str): 'train' 、 'val' 或 'test'，指定加载训练集、验证集或测试集。
+        set (str): 'train' 、 'val' 、'all' 或 'test'，指定加载训练集、验证集、完整训练集或测试集。
         modality (str): 图像的模态类型（'rgb', 'depth', 'infrared'）。
 
         Returns:
         -------
         root_dir (str): 指定数据集和模态的根目录路径。
         """
-        if set == 'train' or set == 'val':
+        if set in ['train', 'val', 'all']:
             if modality == 'rgb':
                 return self.rgb_train_dir
             elif modality == 'depth':
