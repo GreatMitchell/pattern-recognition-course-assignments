@@ -8,10 +8,11 @@ class VideoRecognitionModel(nn.Module):
     完整的视频识别模型：2D CNN提取帧特征 + LSTM建模时序
     支持单模态（RGB）或三模态（RGB+Depth+Infrared）拼接
     """
-    def __init__(self, num_classes=20, num_frames=10, lstm_hidden_size=256, lstm_num_layers=1, modalities=['rgb'], learn_weights=False):
+    def __init__(self, num_classes=20, num_frames=10, lstm_hidden_size=256, lstm_num_layers=1, modalities=['rgb'], learn_weights=False, use_lstm=True):
         super().__init__()
         self.modalities = modalities  # 支持 ['rgb'], ['rgb','depth','infrared'] 等
         self.learn_weights = learn_weights
+        self.use_lstm = use_lstm
         
         # 视觉特征提取器（根据模态初始化）
         self.backbones = nn.ModuleDict()
@@ -27,19 +28,25 @@ class VideoRecognitionModel(nn.Module):
         else:
             self.weights = None
         
-        # 时序建模层（LSTM）
-        self.lstm = nn.LSTM(
-            input_size=self.feature_dim,  # 拼接后的总特征维度
-            hidden_size=lstm_hidden_size,
-            num_layers=lstm_num_layers,
-            batch_first=True,
-            bidirectional=True
-        )
+        if use_lstm:
+            # 时序建模层（LSTM）
+            self.lstm = nn.LSTM(
+                input_size=self.feature_dim,  # 拼接后的总特征维度
+                hidden_size=lstm_hidden_size,
+                num_layers=lstm_num_layers,
+                batch_first=True,
+                bidirectional=True
+            )
+            classifier_input_dim = lstm_hidden_size * 2
+        else:
+            # 简单平均池化：直接对时间维度平均
+            self.lstm = None  # 不使用LSTM
+            classifier_input_dim = self.feature_dim
         
         # 分类头
         self.classifier = nn.Sequential(
-            nn.Dropout(0.5),
-            nn.Linear(lstm_hidden_size * 2, 128),
+            # nn.Dropout(0.5), 暂时注释掉 dropout，尝试过拟合 XXX
+            nn.Linear(classifier_input_dim, 128),
             nn.ReLU(),
             nn.Linear(128, num_classes)
         )
@@ -81,29 +88,34 @@ class VideoRecognitionModel(nn.Module):
         
         combined_features = torch.cat(features_list, dim=2)  # (B, T, feature_dim)
 
-        # 2. 可变长度处理：如果给出 lengths，则使用 pack_padded_sequence
-        if lengths is not None:
-            if isinstance(lengths, torch.Tensor):
-                lengths_cpu = lengths.cpu()
-            else:
-                lengths_cpu = torch.tensor(lengths, dtype=torch.long)
+        # 2. 时序建模：LSTM 或 平均池化
+        if self.use_lstm:
+            # 可变长度处理：如果给出 lengths，则使用 pack_padded_sequence
+            if lengths is not None:
+                if isinstance(lengths, torch.Tensor):
+                    lengths_cpu = lengths.cpu()
+                else:
+                    lengths_cpu = torch.tensor(lengths, dtype=torch.long)
 
-            packed = rnn_utils.pack_padded_sequence(combined_features, lengths_cpu, batch_first=True, enforce_sorted=False)
-            packed_out, (h_n, c_n) = self.lstm(packed)
-            if self.lstm.bidirectional:
-                last_forward = h_n[-2]
-                last_backward = h_n[-1]
-                video_features = torch.cat([last_forward, last_backward], dim=1)
+                packed = rnn_utils.pack_padded_sequence(combined_features, lengths_cpu, batch_first=True, enforce_sorted=False)
+                packed_out, (h_n, c_n) = self.lstm(packed)
+                if self.lstm.bidirectional:
+                    last_forward = h_n[-2]
+                    last_backward = h_n[-1]
+                    video_features = torch.cat([last_forward, last_backward], dim=1)
+                else:
+                    video_features = h_n[-1]
             else:
-                video_features = h_n[-1]
+                lstm_out, (h_n, c_n) = self.lstm(combined_features)
+                if self.lstm.bidirectional:
+                    last_forward = h_n[-2]
+                    last_backward = h_n[-1]
+                    video_features = torch.cat([last_forward, last_backward], dim=1)
+                else:
+                    video_features = h_n[-1]
         else:
-            lstm_out, (h_n, c_n) = self.lstm(combined_features)
-            if self.lstm.bidirectional:
-                last_forward = h_n[-2]
-                last_backward = h_n[-1]
-                video_features = torch.cat([last_forward, last_backward], dim=1)
-            else:
-                video_features = h_n[-1]
+            # 简单平均池化：对时间维度平均
+            video_features = combined_features.mean(dim=1)  # (B, feature_dim)
 
         # 3. 分类
         out = self.classifier(video_features)

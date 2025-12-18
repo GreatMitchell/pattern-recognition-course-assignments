@@ -4,7 +4,7 @@ from utils.device import try_gpu
 import torch
 
 device = try_gpu()
-model = VideoRecognitionModel(num_classes=20).to(device)
+model = VideoRecognitionModel(num_classes=20, use_lstm=True).to(device)
 
 def load_model(checkpoint_path):
     checkpoint = torch.load(checkpoint_path, map_location=device)

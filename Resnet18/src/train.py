@@ -102,6 +102,94 @@ def load_dataiter(dl, train_full, frames_per_clip, sampling, batch_size, shuffle
                                             shuffle=False,
                                             num_workers=num_workers)
 
+def resume_training(ckpt_path, args):
+    device = torch.device("cuda" if torch.cuda.is_available() and not args.force_cpu else "cpu")
+    print("Using device:", device)
+
+    # 加载checkpoint
+    checkpoint = torch.load(ckpt_path, map_location=device)
+    print(f"Loaded checkpoint from epoch {checkpoint['epoch']}")
+
+    # 数据迭代器
+    dl = MyDataLoader()
+    train_loader, val_loader = load_dataiter(dl, args.train_full, args.frames_per_clip, args.sampling, 
+                                            args.batch_size, shuffle=True, num_workers=args.num_workers)
+
+    # 模型
+    modalities = ['rgb'] if args.only_rgb else ['rgb', 'depth', 'infrared']
+    model = VideoRecognitionModel(num_classes=args.num_classes,
+                                  num_frames=args.frames_per_clip,
+                                  modalities=modalities,
+                                  lstm_hidden_size=args.lstm_hidden_size,
+                                  lstm_num_layers=args.lstm_num_layers,
+                                  learn_weights=args.learn_weights,
+                                  use_lstm=not args.no_lstm)
+    model.load_state_dict(checkpoint['model_state'])
+    model = model.to(device)
+
+    # 损失/优化器/调度
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=args.weight_decay)
+    optimizer.load_state_dict(checkpoint['optim_state'])
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
+    scheduler.load_state_dict(checkpoint['scheduler_state'])
+
+    # 混合精度支持
+    use_amp = args.use_amp and (device.type == 'cuda')
+    scaler = amp.GradScaler() if use_amp else None
+
+    # 恢复最佳指标
+    if args.train_full:
+        best_metric = checkpoint.get('best_metric', float('inf'))
+    else:
+        best_metric = checkpoint.get('best_metric', 0.0)
+    os.makedirs(args.ckpt_dir, exist_ok=True)
+
+    # 从下一个epoch开始训练
+    start_epoch = checkpoint['epoch'] + 1
+    for epoch in range(start_epoch, args.epochs + 1):
+        t0 = time.time()
+        train_loss, train_acc = train_one_epoch(model, train_loader, criterion, optimizer, device, scaler, grad_clip=args.grad_clip)
+        # 如果有验证集则评估，否则跳过验证
+        if val_loader is not None:
+            val_loss, val_acc = validate(model, val_loader, criterion, device)
+        else:
+            val_loss, val_acc = None, None
+
+        scheduler.step()
+
+        elapsed = time.time() - t0
+        if val_loader is not None:
+            print(f"Epoch {epoch}/{args.epochs} | Time {elapsed:.1f}s | Train loss {train_loss:.4f} acc {train_acc:.4f} | Val loss {val_loss:.4f} acc {val_acc:.4f}")
+        else:
+            print(f"Epoch {epoch}/{args.epochs} | Time {elapsed:.1f}s | Train loss {train_loss:.4f} acc {train_acc:.4f}")
+
+        # 保存 checkpoint：如果使用验证集按 val_acc 判断，否则按 train_loss 判断（越小越好）
+        if val_loader is not None:
+            is_best = val_acc > best_metric
+            if is_best:
+                best_metric = val_acc
+        else:
+            is_best = train_loss < best_metric
+            if is_best:
+                best_metric = train_loss
+
+        ckpt = {
+            'epoch': epoch,
+            'model_state': model.state_dict(),
+            'optim_state': optimizer.state_dict(),
+            'scheduler_state': scheduler.state_dict(),
+            'best_metric': best_metric
+        }
+        save_checkpoint(ckpt, os.path.join(args.ckpt_dir, f"ckpt_epoch{epoch}.pth"))
+        if is_best:
+            save_checkpoint(ckpt, os.path.join(args.ckpt_dir, "best.pth"))
+
+    if val_loader is not None:
+        print("Resume training finished. Best val acc:", best_metric)
+    else:
+        print("Resume training finished. Best train loss:", best_metric)
+
 def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() and not args.force_cpu else "cpu")
     print("Using device:", device)
@@ -119,7 +207,8 @@ def main(args):
                                   modalities=modalities,
                                   lstm_hidden_size=args.lstm_hidden_size,
                                   lstm_num_layers=args.lstm_num_layers,
-                                  learn_weights=args.learn_weights)
+                                  learn_weights=args.learn_weights,
+                                  use_lstm=not args.no_lstm)
     model = model.to(device)
 
     # 损失/优化器/调度
@@ -184,13 +273,13 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=20)
-    parser.add_argument('--batch_size', type=int, default=4)
-    parser.add_argument('--frames_per_clip', type=int, default=128)
+    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--frames_per_clip', type=int, default=64)
     parser.add_argument('--sampling', type=str, default='uniform', choices=['all', 'uniform', 'random'],
                         help='Frame sampling strategy: "uniform" or "random"')
     parser.add_argument('--num_workers', type=int, default=0)  # Windows / notebook 默认 0 更安全
     parser.add_argument('--lr', type=float, default=1e-4)
-    parser.add_argument('--weight_decay', type=float, default=1e-5)
+    parser.add_argument('--weight_decay', type=float, default=0.0) # L2 正则化系数，暂时设为 0 XXX
     parser.add_argument('--lr_step', type=int, default=7)
     parser.add_argument('--lr_gamma', type=float, default=0.5)
     parser.add_argument('--num_classes', type=int, default=20)
@@ -206,5 +295,13 @@ if __name__ == "__main__":
                         help='If set, use only RGB modality')
     parser.add_argument('--learn_weights', action='store_true',
                         help='Whether to learn modality concatenation weights during training')
+    parser.add_argument('--no_lstm', action='store_true', default=False,
+                        help='Whether to use LSTM for temporal modeling (default: False). If True, use average pooling.')
+    parser.add_argument('--resume', type=str, default=None,
+                        help='Path to checkpoint to resume training from')
     args = parser.parse_args()
-    main(args)
+
+    if args.resume:
+        resume_training(args.resume, args)
+    else:
+        main(args)
