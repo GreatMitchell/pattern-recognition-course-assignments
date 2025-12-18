@@ -80,6 +80,28 @@ def validate(model, loader, criterion, device):
 
     return running_loss / max(1, n_batches), running_acc / max(1, n_batches)
 
+def load_dataiter(dl, train_full, frames_per_clip, sampling, batch_size, shuffle, num_workers):
+    if train_full:
+        return dl.load_multi_modal_dataiter(set='all',
+                                            frames_per_clip=frames_per_clip,
+                                            sampling=sampling,
+                                            batch_size=batch_size,
+                                            shuffle=shuffle,
+                                            num_workers=num_workers), None
+    else:
+        return dl.load_multi_modal_dataiter(set='train',
+                                            frames_per_clip=frames_per_clip,
+                                            sampling=sampling,
+                                            batch_size=batch_size,
+                                            shuffle=shuffle,
+                                            num_workers=num_workers,), \
+                dl.load_multi_modal_dataiter(set='val', 
+                                            frames_per_clip=frames_per_clip,
+                                            sampling=sampling,
+                                            batch_size=batch_size,
+                                            shuffle=False,
+                                            num_workers=num_workers)
+
 def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() and not args.force_cpu else "cpu")
     print("Using device:", device)
@@ -87,29 +109,17 @@ def main(args):
     # 数据迭代器
     dl = MyDataLoader()
     # 如果启用 --train_full 则使用全部训练样本并跳过验证
-    if args.train_full:
-        train_set_name = 'all'
-        val_loader = None
-    else:
-        train_set_name = 'train'
-
-    train_loader = dl.load_multi_modal_dataiter(set=train_set_name,
-                                                frames_per_clip=args.frames_per_clip,
-                                                batch_size=args.batch_size,
-                                                shuffle=True,
-                                                num_workers=args.num_workers)
-    if not args.train_full:
-        val_loader = dl.load_multi_modal_dataiter(set='val',
-                                                  frames_per_clip=args.frames_per_clip,
-                                                  batch_size=args.batch_size,
-                                                  shuffle=False,
-                                                  num_workers=args.num_workers)
+    train_loader, val_loader = load_dataiter(dl, args.train_full, args.frames_per_clip, args.sampling, 
+                                            args.batch_size, shuffle=True, num_workers=args.num_workers)
 
     # 模型
+    modalities = ['rgb'] if args.only_rgb else ['rgb', 'depth', 'infrared']
     model = VideoRecognitionModel(num_classes=args.num_classes,
                                   num_frames=args.frames_per_clip,
+                                  modalities=modalities,
                                   lstm_hidden_size=args.lstm_hidden_size,
-                                  lstm_num_layers=args.lstm_num_layers)
+                                  lstm_num_layers=args.lstm_num_layers,
+                                  learn_weights=args.learn_weights)
     model = model.to(device)
 
     # 损失/优化器/调度
@@ -175,7 +185,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=20)
     parser.add_argument('--batch_size', type=int, default=4)
-    parser.add_argument('--frames_per_clip', type=int, default=32)
+    parser.add_argument('--frames_per_clip', type=int, default=128)
+    parser.add_argument('--sampling', type=str, default='uniform', choices=['all', 'uniform', 'random'],
+                        help='Frame sampling strategy: "uniform" or "random"')
     parser.add_argument('--num_workers', type=int, default=0)  # Windows / notebook 默认 0 更安全
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--weight_decay', type=float, default=1e-5)
@@ -188,49 +200,11 @@ if __name__ == "__main__":
     parser.add_argument('--force_cpu', action='store_true')
     parser.add_argument('--ckpt_dir', type=str, default='checkpoints')
     parser.add_argument('--grad_clip', type=float, default=5.0)
-    parser.add_argument('--train_full', action='store_true') # 决定是否使用整个训练集训练（不必要验证）
+    parser.add_argument('--train_full', action='store_true',
+                        help='If set, use the full training set and skip validation')
+    parser.add_argument('--only_rgb', action='store_true',
+                        help='If set, use only RGB modality')
+    parser.add_argument('--learn_weights', action='store_true',
+                        help='Whether to learn modality concatenation weights during training')
     args = parser.parse_args()
     main(args)
-
-'''
-Epoch 13/20 | Time 1015.4s | Train loss 1.1627 acc 0.7686 | Val loss 0.9814 acc 0.7812
-Epoch 14/20 | Time 906.8s | Train loss 1.1123 acc 0.7739 | Val loss 0.9331 acc 0.7812
-Epoch 15/20 | Time 948.0s | Train loss 1.0277 acc 0.7899 | Val loss 0.8776 acc 0.8516
-Epoch 16/20 | Time 968.2s | Train loss 0.9548 acc 0.8378 | Val loss 0.8586 acc 0.8125
-Epoch 17/20 | Time 1156.7s | Train loss 0.9294 acc 0.8245 | Val loss 0.8240 acc 0.8359
-Epoch 15/20 | Time 948.0s | Train loss 1.0277 acc 0.7899 | Val loss 0.8776 acc 0.8516
-Epoch 16/20 | Time 968.2s | Train loss 0.9548 acc 0.8378 | Val loss 0.8586 acc 0.8125
-Epoch 17/20 | Time 1156.7s | Train loss 0.9294 acc 0.8245 | Val loss 0.8240 acc 0.8359
-Epoch 18/20 | Time 1142.0s | Train loss 0.8838 acc 0.8475 | Val loss 0.8290 acc 0.8203
-Epoch 17/20 | Time 1156.7s | Train loss 0.9294 acc 0.8245 | Val loss 0.8240 acc 0.8359
-Epoch 18/20 | Time 1142.0s | Train loss 0.8838 acc 0.8475 | Val loss 0.8290 acc 0.8203
-Epoch 18/20 | Time 1142.0s | Train loss 0.8838 acc 0.8475 | Val loss 0.8290 acc 0.8203
-Epoch 19/20 | Time 1082.8s | Train loss 0.8814 acc 0.8209 | Val loss 0.8047 acc 0.8047
-Epoch 20/20 | Time 1180.7s | Train loss 0.8114 acc 0.8537 | Val loss 0.7668 acc 0.8203
-Training finished. Best val acc: 0.8515625
-'''
-
-'''
-Using device: cuda
-Epoch 1/20 | Time 370.6s | Train loss 2.8874 acc 0.1726
-Epoch 2/20 | Time 367.0s | Train loss 2.5554 acc 0.3492
-Epoch 3/20 | Time 370.3s | Train loss 2.2256 acc 0.5238
-Epoch 4/20 | Time 366.3s | Train loss 1.9231 acc 0.5754
-Epoch 5/20 | Time 365.4s | Train loss 1.6657 acc 0.6746
-Epoch 6/20 | Time 370.1s | Train loss 1.4576 acc 0.7004
-Epoch 7/20 | Time 366.2s | Train loss 1.3051 acc 0.7242
-Epoch 8/20 | Time 370.0s | Train loss 1.1202 acc 0.8036
-Epoch 9/20 | Time 374.3s | Train loss 1.0123 acc 0.8075
-Epoch 10/20 | Time 371.5s | Train loss 0.9117 acc 0.8492
-Epoch 11/20 | Time 367.5s | Train loss 0.8355 acc 0.8472
-Epoch 12/20 | Time 371.3s | Train loss 0.7490 acc 0.8611
-Epoch 13/20 | Time 368.0s | Train loss 0.7167 acc 0.8651
-Epoch 14/20 | Time 370.6s | Train loss 0.6741 acc 0.8889
-Epoch 15/20 | Time 369.4s | Train loss 0.6113 acc 0.9107
-Epoch 16/20 | Time 364.8s | Train loss 0.5736 acc 0.9147
-Epoch 17/20 | Time 363.0s | Train loss 0.5378 acc 0.9286
-Epoch 18/20 | Time 367.4s | Train loss 0.5141 acc 0.9286
-Epoch 19/20 | Time 362.3s | Train loss 0.4817 acc 0.9266
-Epoch 20/20 | Time 363.0s | Train loss 0.4615 acc 0.9365
-Training finished. Best train loss: 0.4615383803371399
-'''

@@ -93,30 +93,12 @@ class VideoFrameDataset(Dataset):
                     img = img.convert('RGB')
                     img_t = self.transform(img) if self.transform else T.ToTensor()(img)
 
-                elif self.modality == 'infrared':
+                elif self.modality == 'infrared' or self.modality == 'depth':
                     # 强制灰度，归一化到 [0,1]
                     img = img.convert('L')
                     img_t = self.transform(img) if self.transform else T.ToTensor()(img)
                     if self.repeat_channels:
                         img_t = img_t.repeat(3, 1, 1)  # -> 3xHxW
-
-                elif self.modality == 'depth':
-                    img = img.convert('L')
-                    img_t = self.transform(img) if self.transform else T.ToTensor()(img)
-                    if self.repeat_channels:
-                        img_t = img_t.repeat(3, 1, 1)  # -> 3xHxW
-                    # # 试图保留 16-bit/原始深度值（使用 numpy 读取更稳健）
-                    # arr = np.array(img)  # 可能是 uint16 或 uint8 或 float
-                    # arr = arr.astype(np.float32)
-                    # maxv = arr.max() if arr.max() > 0 else 1.0
-                    # arr = arr / maxv   # 归一化到 [0,1]
-                    # # 转为 PIL 再变成 tensor（或直接转 tensor）
-                    # img_t = torch.from_numpy(arr).unsqueeze(0)  # 1 x H x W
-                    # if self.repeat_channels:
-                    #     img_t = img_t.repeat(3, 1, 1)  # -> 3 x H x W
-                    # else:
-                    #     # 保持单通道 1xHxW
-                    #     pass
                 else:
                     raise ValueError("Unsupported modality")
             frames.append(img_t)

@@ -182,13 +182,7 @@ class DataLoader:
                     if not (sample_id in sample_ids):
                         continue
 
-                    # 若同一样本号出现多次但标签不一致，保留首次出现的标签
-                    if sample_id in labels:
-                        if labels[sample_id] != label:
-                            # 不一致时忽略后续不同标签
-                            continue
-                    else:
-                        labels[sample_id] = label
+                    labels[sample_id] = label
 
         except FileNotFoundError:
             print(f"标签文件未找到: {self.train_labels_path}")
@@ -197,62 +191,35 @@ class DataLoader:
 
         return sample_ids, labels
     
-    def load_dataiter(self, set='train', modality='rgb', frames_per_clip=128, sampling='uniform', frame_ext='jpg', pad_mode='repeat', 
-                         batch_size=8, shuffle=True, num_workers=4):
-        """
-        加载数据迭代器。
+    def load_multi_modal_dataiter(self, set='train', frames_per_clip=128, sampling='uniform', frame_ext=['jpg', 'png', 'jpg'],
+                              pad_mode='repeat', batch_size=4, shuffle=True, num_workers=4):
+        '''
+        加载多模态数据迭代器。
 
         Parameters:
         ----------
         set (str): 'train' 、 'val' 、'all' 或 'test，指定加载训练集、验证集、完整训练集或测试集。
-        modality (str): 图像的模态类型（'rgb', 'depth', 'infrared'）。
         frames_per_clip (int): 每个样本返回的帧数。
         sampling (str): 采样策略。
-        frame_ext (str): 帧扩展名。
+        frame_ext (list of str): 三个模态的帧扩展名列表。
         pad_mode (str): 填充模式。
         batch_size (int): 批量大小。
         shuffle (bool): 是否打乱数据。
         num_workers (int): 数据加载的子进程数。
-
+        
         Returns:
         -------
-        DataLoader: 训练集数据迭代器。
-        """
-        # 加载样本编号列表和标签（测试集无标签）
-        sample_ids, labels = self.get_ids_and_labels(set)
-        
-        # 依据模态选择根目录
-        root_dir = self.get_root_dir(set, modality)
-
-        # 为每个模态构造 VideoFrameDataset（注意 transform）
-        if modality == 'rgb':
-            transform = torchvision.transforms.Compose([
-                torchvision.transforms.Resize((224,224)),
-                torchvision.transforms.ToTensor(),
-                torchvision.transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])
-            ])
-        else:  # 'depth' 或 'infrared'
-            transform = torchvision.transforms.Compose([
-                torchvision.transforms.Resize((224,224)),
-                torchvision.transforms.ToTensor(),
-                # 这里 normalize 可改为单通道 mean/std 或占位 0.5/0.5
-                torchvision.transforms.Normalize(mean=[0.5], std=[0.5])
-            ])
-        dataset = VideoFrameDataset(
-            root_dir=root_dir,
-            sample_ids=sample_ids,
-            labels=labels,
-            transform=transform,
-            modality=modality,
-            frames_per_clip=frames_per_clip,
-            sampling=sampling,
-            frame_ext=frame_ext,
-            pad_mode=pad_mode
-        )
-        return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
-    
-    def load_multi_modal_dataiter(self, set='train', frames_per_clip=128, sampling='uniform', frame_ext=['jpg', 'png', 'jpg'],
-                              pad_mode='repeat', batch_size=4, shuffle=True, num_workers=4):
+        DataLoader: 多模态数据迭代器。
+        迭代器每个 batch 返回 dict:
+            'rgb': Tensor(B, T, C, H, W)
+            'depth': Tensor(B, T, C, H, W)
+            'infrared': Tensor(B, T, C, H, W)
+            'lengths': Tensor(B,)
+            'labels': Tensor(B,)
+            'ids': list of sample ids
+        其中 T 由 frames_per_clip 和采样策略决定。
+        例如，frames_per_clip=16, sampling='uniform' 则 T=16.
+        '''
         sample_ids, labels = self.get_ids_and_labels(set)
         # 为每个模态构造 VideoFrameDataset（注意 transform）
         transform_rgb = torchvision.transforms.Compose([

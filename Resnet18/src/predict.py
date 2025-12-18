@@ -16,6 +16,21 @@ def load_model(checkpoint_path):
     model.load_state_dict(state_dict)
     model.eval()  # 切换到评估模式
 
+def predict_rgb():
+    dl = DataLoader()
+    test_loader = dl.load_multi_modal_dataiter(set='test', batch_size=1, shuffle=False, num_workers=0)
+    for batch in test_loader:
+        rgb = batch['rgb'].to(device)
+        lengths = batch['lengths']
+        sample_id = batch['ids'][0]
+        logits = model(rgb, lengths=lengths)  # 注意：这里只传入 rgb，depth 和 infrared 为 None
+        with torch.no_grad():
+            pred = logits.argmax(dim=1).item()
+        
+        # 保存 (sample_id, pred) 到结果文件
+        with open('submission.csv', 'a') as f:
+            f.write(f"{sample_id},{pred}\n")
+
 def predict():
     dl = DataLoader()
     test_loader = dl.load_multi_modal_dataiter(set='test', batch_size=1, shuffle=False, num_workers=0)
