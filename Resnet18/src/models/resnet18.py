@@ -32,11 +32,9 @@ class FrameFeatureExtractor(nn.Module):
                     resnet.conv1.bias.data.copy_(original_conv1.bias.data)
 
         self.feature_extractor = nn.Sequential(*list(resnet.children())[:-1])  # 保留直到全局池化层
-        # 更明确地冻结：例如只解冻 layer4 及其后的参数
-        for name, param in self.feature_extractor.named_parameters():
-            # 解冻 layer4 的参数（以及 bn/最后的 conv 等），其余冻结
-            if not name.startswith('layer4'):
-                param.requires_grad = False
+        # 解冻所有参数以进行完整微调
+        for param in self.feature_extractor.parameters():
+            param.requires_grad = True
 
         # ResNet18最终的特征维度是512
         self.feature_dim = 512

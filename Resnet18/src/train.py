@@ -129,7 +129,21 @@ def resume_training(ckpt_path, args):
 
     # 损失/优化器/调度
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=args.weight_decay)
+    
+    # 设置不同的学习率组：ResNet主干使用较低的学习率
+    backbone_params = []
+    other_params = []
+    for name, param in model.named_parameters():
+        if 'feature_extractor' in name:  # ResNet参数
+            backbone_params.append(param)
+        else:
+            other_params.append(param)
+    
+    param_groups = [
+        {'params': backbone_params, 'lr': args.backbone_lr},
+        {'params': other_params, 'lr': args.lr}
+    ]
+    optimizer = optim.Adam(param_groups, weight_decay=args.weight_decay)
     optimizer.load_state_dict(checkpoint['optim_state'])
     
     # 选择调度器
@@ -224,7 +238,21 @@ def main(args):
 
     # 损失/优化器/调度
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=args.weight_decay)
+    
+    # 设置不同的学习率组：ResNet主干使用较低的学习率
+    backbone_params = []
+    other_params = []
+    for name, param in model.named_parameters():
+        if 'feature_extractor' in name:  # ResNet参数
+            backbone_params.append(param)
+        else:
+            other_params.append(param)
+    
+    param_groups = [
+        {'params': backbone_params, 'lr': args.backbone_lr},
+        {'params': other_params, 'lr': args.lr}
+    ]
+    optimizer = optim.Adam(param_groups, weight_decay=args.weight_decay)
     
     # 选择调度器
     if args.scheduler_type == 'plateau' and val_loader is not None:
@@ -301,6 +329,8 @@ if __name__ == "__main__":
                         help='Frame sampling strategy: "uniform" or "random"')
     parser.add_argument('--num_workers', type=int, default=0)  # Windows / notebook 默认 0 更安全
     parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--backbone_lr', type=float, default=1e-5,
+                        help='Learning rate for ResNet backbone (when unfrozen)')
     parser.add_argument('--weight_decay', type=float, default=0.0) # L2 正则化系数，暂时设为 0 XXX
     parser.add_argument('--lr_step', type=int, default=7)
     parser.add_argument('--lr_gamma', type=float, default=0.5)
