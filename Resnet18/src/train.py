@@ -131,7 +131,14 @@ def resume_training(ckpt_path, args):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=args.weight_decay)
     optimizer.load_state_dict(checkpoint['optim_state'])
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
+    
+    # 选择调度器
+    if args.scheduler_type == 'plateau' and val_loader is not None:
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max' if not args.train_full else 'min', 
+                                                         factor=args.lr_factor, patience=args.patience, 
+                                                         min_lr=args.min_lr, verbose=True)
+    else:
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
     scheduler.load_state_dict(checkpoint['scheduler_state'])
 
     # 混合精度支持
@@ -156,7 +163,11 @@ def resume_training(ckpt_path, args):
         else:
             val_loss, val_acc = None, None
 
-        scheduler.step()
+        if isinstance(scheduler, optim.lr_scheduler.ReduceLROnPlateau):
+            if val_loader is not None:
+                scheduler.step(val_acc if not args.train_full else val_loss)
+        else:
+            scheduler.step()
 
         elapsed = time.time() - t0
         if val_loader is not None:
@@ -214,7 +225,14 @@ def main(args):
     # 损失/优化器/调度
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=args.weight_decay)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
+    
+    # 选择调度器
+    if args.scheduler_type == 'plateau' and val_loader is not None:
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max' if not args.train_full else 'min', 
+                                                         factor=args.lr_factor, patience=args.patience, 
+                                                         min_lr=args.min_lr, verbose=True)
+    else:
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step, gamma=args.lr_gamma)
 
     # 混合精度支持
     use_amp = args.use_amp and (device.type == 'cuda')
@@ -236,7 +254,11 @@ def main(args):
         else:
             val_loss, val_acc = None, None
 
-        scheduler.step()
+        if isinstance(scheduler, optim.lr_scheduler.ReduceLROnPlateau):
+            if val_loader is not None:
+                scheduler.step(val_acc if not args.train_full else val_loss)
+        else:
+            scheduler.step()
 
         elapsed = time.time() - t0
         if val_loader is not None:
@@ -282,6 +304,14 @@ if __name__ == "__main__":
     parser.add_argument('--weight_decay', type=float, default=0.0) # L2 正则化系数，暂时设为 0 XXX
     parser.add_argument('--lr_step', type=int, default=7)
     parser.add_argument('--lr_gamma', type=float, default=0.5)
+    parser.add_argument('--scheduler_type', type=str, default='step', choices=['step', 'plateau'],
+                        help='Learning rate scheduler type: "step" or "plateau"')
+    parser.add_argument('--lr_factor', type=float, default=0.1,
+                        help='Factor by which the learning rate will be reduced (for ReduceLROnPlateau)')
+    parser.add_argument('--patience', type=int, default=5,
+                        help='Number of epochs with no improvement after which learning rate will be reduced (for ReduceLROnPlateau)')
+    parser.add_argument('--min_lr', type=float, default=1e-6,
+                        help='Minimum learning rate (for ReduceLROnPlateau)')
     parser.add_argument('--num_classes', type=int, default=20)
     parser.add_argument('--lstm_hidden_size', type=int, default=256)
     parser.add_argument('--lstm_num_layers', type=int, default=1)
