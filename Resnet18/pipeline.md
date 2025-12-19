@@ -149,9 +149,52 @@
     Resume training finished. Best val acc: 0.9445043057203293
     ```
 
-- [ ] 支线：解冻Resnet18主干进行微调10个epoch
+- [x] 支线：解冻Resnet18主干进行微调10个epoch
     ```bash
     python Resnet18/src/train.py --resume checkpoints_batchsize32_and_no_reg/ckpt_epoch20.pth --epochs 30 --only_rgb --ckpt_dir checkpoints_batchsize32_and_no_reg/resnet18_finetune >> log.txt
     ```
+    结果：
+    ```text
+    Loaded checkpoint from epoch 20
+    Warning: Optimizer state has different number of parameter groups (likely due to unfreezing backbone). Skipping optimizer state loading.
+    Epoch 21/30 | Time 195.2s | Train loss 0.5043 acc 0.9407 | Val loss 0.4707 acc 0.9523
+    Epoch 22/30 | Time 184.7s | Train loss 0.3825 acc 0.9635 | Val loss 0.4163 acc 0.9445
+    Epoch 23/30 | Time 183.7s | Train loss 0.3338 acc 0.9755 | Val loss 0.3581 acc 0.9523
+    Epoch 24/30 | Time 182.2s | Train loss 0.2857 acc 0.9792 | Val loss 0.3173 acc 0.9601
+    Epoch 25/30 | Time 181.2s | Train loss 0.2391 acc 0.9834 | Val loss 0.2910 acc 0.9601
+    Epoch 26/30 | Time 181.9s | Train loss 0.2226 acc 0.9844 | Val loss 0.2668 acc 0.9523
+    Epoch 27/30 | Time 182.3s | Train loss 0.1972 acc 0.9870 | Val loss 0.2462 acc 0.9445
+    Epoch 28/30 | Time 181.2s | Train loss 0.1717 acc 0.9870 | Val loss 0.2260 acc 0.9523
+    Epoch 29/30 | Time 182.6s | Train loss 0.1644 acc 0.9912 | Val loss 0.2139 acc 0.9601
+    Epoch 30/30 | Time 182.8s | Train loss 0.1575 acc 0.9922 | Val loss 0.2022 acc 0.9601
+    Resume training finished. Best val acc: 0.9601293057203293
+    ```
 
+- [ ] 支线：验证此模型是否过拟合；采用全量微调后在测试集上再次尝试
+    ```bash
+    python -u Resnet18/src/train.py --resume checkpoints_batchsize32_and_no_reg/resnet18_finetune/best.pth --epochs 40 --train_full --only_rgb --ckpt_dir checkpoints_batchsize32_and_no_reg/resnet18_finetune/train_full --frames_per_clip 32 >> log.txt
+    ```
+    结果：
+    ```text
+    Using device: cuda
+    Loaded checkpoint from epoch 24
+    Optimizer state loaded successfully.
+    Epoch 25/40 | Time 188.2s | Train loss 0.2699 acc 0.9746
+    Epoch 26/40 | Time 186.9s | Train loss 0.2392 acc 0.9766
+    Epoch 27/40 | Time 185.8s | Train loss 0.2053 acc 0.9852
+    Epoch 28/40 | Time 185.3s | Train loss 0.1620 acc 0.9863
+    Epoch 29/40 | Time 184.5s | Train loss 0.1460 acc 0.9902
+    Epoch 30/40 | Time 184.5s | Train loss 0.1417 acc 0.9879
+    Epoch 31/40 | Time 184.9s | Train loss 0.1261 acc 0.9902
+    Epoch 32/40 | Time 184.2s | Train loss 0.1179 acc 0.9922
+    Epoch 33/40 | Time 182.4s | Train loss 0.1128 acc 0.9961
+    Epoch 34/40 | Time 182.3s | Train loss 0.1069 acc 0.9898
+    Epoch 35/40 | Time 183.3s | Train loss 0.0978 acc 0.9961
+    Epoch 36/40 | Time 183.1s | Train loss 0.0961 acc 0.9949
+    Epoch 37/40 | Time 182.9s | Train loss 0.0887 acc 1.0000
+    Epoch 38/40 | Time 183.1s | Train loss 0.0849 acc 0.9980
+    Epoch 39/40 | Time 183.2s | Train loss 0.0862 acc 0.9949
+    Epoch 40/40 | Time 184.6s | Train loss 0.0816 acc 1.0000
+    Resume training finished. Best train loss: 0.08161398093216121
+    ```
 - - -

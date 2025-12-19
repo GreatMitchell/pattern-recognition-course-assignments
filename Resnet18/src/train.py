@@ -144,7 +144,14 @@ def resume_training(ckpt_path, args):
         {'params': other_params, 'lr': args.lr}
     ]
     optimizer = optim.Adam(param_groups, weight_decay=args.weight_decay)
-    optimizer.load_state_dict(checkpoint['optim_state'])
+    try:
+        optimizer.load_state_dict(checkpoint['optim_state'])
+        print("Optimizer state loaded successfully.")
+    except ValueError as e:
+        if "different number of parameter groups" in str(e):
+            print("Warning: Optimizer state has different number of parameter groups (likely due to unfreezing backbone). Skipping optimizer state loading.")
+        else:
+            raise e
     
     # 选择调度器
     if args.scheduler_type == 'plateau' and val_loader is not None:
