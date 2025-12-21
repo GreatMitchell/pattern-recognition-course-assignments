@@ -365,5 +365,9 @@
     Resume training finished. Best train loss: 0.057495471090078354
     ```
 
-    
+- [x] 在测试集上检查RGB模型和红外模型是否过拟合：
+    RGB 69分，红外74分——均未过拟合
+
+- [x] 检查深度图像的质量
+    检查结果请参见[结果文件](../depth_check.txt)。
 - - -
