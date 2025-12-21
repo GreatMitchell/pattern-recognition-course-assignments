@@ -120,6 +120,16 @@ def resume_training(ckpt_path, args):
         modalities = ['rgb']
     else:
         modalities = [mod.strip() for mod in args.modalities.split(',')]
+    
+    # 解析预训练权重路径
+    if args.pretrained_weights_paths:
+        pretrained_weights_paths = {}
+        for pair in args.pretrained_weights_paths.split(','):
+            mod, path = pair.split(':')
+            pretrained_weights_paths[mod.strip()] = path.strip()
+    else:
+        pretrained_weights_paths = None
+    
     model = VideoRecognitionModel(num_classes=args.num_classes,
                                   num_frames=args.frames_per_clip,
                                   modalities=modalities,
@@ -128,7 +138,7 @@ def resume_training(ckpt_path, args):
                                   learn_weights=args.learn_weights,
                                   use_lstm=not args.no_lstm,
                                   freeze_backbone=args.freeze_backbone,
-                                  pretrained_weights_path=args.pretrained_weights_path)
+                                  pretrained_weights_paths=pretrained_weights_paths)
     model.load_state_dict(checkpoint['model_state'])
     model = model.to(device)
 
@@ -247,6 +257,16 @@ def main(args):
         modalities = ['rgb']
     else:
         modalities = [mod.strip() for mod in args.modalities.split(',')]
+    
+    # 解析预训练权重路径
+    if args.pretrained_weights_paths:
+        pretrained_weights_paths = {}
+        for pair in args.pretrained_weights_paths.split(','):
+            mod, path = pair.split(':')
+            pretrained_weights_paths[mod.strip()] = path.strip()
+    else:
+        pretrained_weights_paths = None
+    
     model = VideoRecognitionModel(num_classes=args.num_classes,
                                   num_frames=args.frames_per_clip,
                                   modalities=modalities,
@@ -255,7 +275,7 @@ def main(args):
                                   learn_weights=args.learn_weights,
                                   use_lstm=not args.no_lstm,
                                   freeze_backbone=args.freeze_backbone,
-                                  pretrained_weights_path=args.pretrained_weights_path)
+                                  pretrained_weights_paths=pretrained_weights_paths)
     model = model.to(device)
 
     # 损失/优化器/调度
@@ -358,7 +378,7 @@ if __name__ == "__main__":
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--backbone_lr', type=float, default=1e-5,
                         help='Learning rate for ResNet backbone (when unfrozen)')
-    parser.add_argument('--weight_decay', type=float, default=0.0) # L2 正则化系数，暂时设为 0 XXX
+    parser.add_argument('--weight_decay', type=float, default=1e-5) # L2 正则化系数
     parser.add_argument('--lr_step', type=int, default=7)
     parser.add_argument('--lr_gamma', type=float, default=0.5)
     parser.add_argument('--scheduler_type', type=str, default='step', choices=['step', 'plateau'],
@@ -388,8 +408,8 @@ if __name__ == "__main__":
                         help='Whether to use LSTM for temporal modeling (default: False). If True, use average pooling.')
     parser.add_argument('--freeze_backbone', action='store_true',
                         help='Whether to freeze ResNet backbone parameters (only train classifier)')
-    parser.add_argument('--pretrained_weights_path', type=str, default=None,
-                        help='Path to custom pretrained ResNet weights (.pth file)')
+    parser.add_argument('--pretrained_weights_paths', type=str, default=None,
+                        help='Comma-separated list of modality:weight_path pairs (e.g., "rgb:/path/to/rgb.pth,infrared:/path/to/ir.pth")')
     parser.add_argument('--resume', type=str, default=None,
                         help='Path to checkpoint to resume training from')
     args = parser.parse_args()

@@ -370,4 +370,18 @@
 
 - [x] 检查深度图像的质量
     检查结果请参见[结果文件](../depth_check.txt)。
+
+> 备注：从此开始checkpoints已移动到数据盘`/root/autodl-tmp/`中。
+
+- [ ] 晚期融合的更多权重尝试
+
+- [ ] 中期融合：特征直接拼接
+    ```bash
+    python -u Resnet18/src/train.py --pretrained_weights_paths rgb:/root/autodl-tmp/checkpoints_batchsize32_and_no_reg/resnet18_finetune/train_full/best.pth,infrared:/root/autodl-tmp/checkpoints_batchsize32_and_no_reg/infrared_finetune/train_full_and_resnet18_finetune/best.pth --epochs 30 --train_full --modalities rgb,infrared --ckpt_dir /root/autodl-tmp/checkpoints_concat_train_full --frames_per_clip 32 --freeze_backbone >> log.txt
+    ```
+
+- [ ] 中期融合：特征加权拼接
+    ```bash
+    python -u Resnet18/src/train.py --pretrained_weights_paths rgb:/root/autodl-tmp/checkpoints_batchsize32_and_no_reg/resnet18_finetune/train_full/best.pth,infrared:/root/autodl-tmp/checkpoints_batchsize32_and_no_reg/infrared_finetune/train_full_and_resnet18_finetune/best.pth --epochs 30 --train_full --modalities rgb,infrared --ckpt_dir /root/autodl-tmp/checkpoints_weighted_concat_train_full --frames_per_clip 32 --freeze_backbone --learn_weights >> log.txt
+    ```
 - - -
