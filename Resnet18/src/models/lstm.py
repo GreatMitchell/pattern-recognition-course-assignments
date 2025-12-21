@@ -8,7 +8,7 @@ class VideoRecognitionModel(nn.Module):
     完整的视频识别模型：2D CNN提取帧特征 + LSTM建模时序
     支持单模态（RGB）或三模态（RGB+Depth+Infrared）拼接
     """
-    def __init__(self, num_classes=20, num_frames=10, lstm_hidden_size=256, lstm_num_layers=1, modalities=['rgb'], learn_weights=False, use_lstm=True):
+    def __init__(self, num_classes=20, num_frames=10, lstm_hidden_size=256, lstm_num_layers=1, modalities=['rgb'], learn_weights=False, use_lstm=True, freeze_backbone=False, pretrained_weights_path=None):
         super().__init__()
         self.modalities = modalities  # 支持 ['rgb'], ['rgb','depth','infrared'] 等
         self.learn_weights = learn_weights
@@ -17,7 +17,7 @@ class VideoRecognitionModel(nn.Module):
         # 视觉特征提取器（根据模态初始化）
         self.backbones = nn.ModuleDict()
         for mod in modalities:
-            self.backbones[mod] = FrameFeatureExtractor(modality=mod)
+            self.backbones[mod] = FrameFeatureExtractor(modality=mod, freeze_backbone=freeze_backbone, pretrained_weights_path=pretrained_weights_path)
         
         # 计算总特征维度
         self.feature_dim = sum(self.backbones[mod].feature_dim for mod in modalities)

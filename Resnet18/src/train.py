@@ -116,34 +116,44 @@ def resume_training(ckpt_path, args):
                                             args.batch_size, shuffle=True, num_workers=args.num_workers)
 
     # 模型
-    modalities = ['rgb'] if args.only_rgb else ['rgb', 'depth', 'infrared']
+    if args.only_rgb:
+        modalities = ['rgb']
+    else:
+        modalities = [mod.strip() for mod in args.modalities.split(',')]
     model = VideoRecognitionModel(num_classes=args.num_classes,
                                   num_frames=args.frames_per_clip,
                                   modalities=modalities,
                                   lstm_hidden_size=args.lstm_hidden_size,
                                   lstm_num_layers=args.lstm_num_layers,
                                   learn_weights=args.learn_weights,
-                                  use_lstm=not args.no_lstm)
+                                  use_lstm=not args.no_lstm,
+                                  freeze_backbone=args.freeze_backbone,
+                                  pretrained_weights_path=args.pretrained_weights_path)
     model.load_state_dict(checkpoint['model_state'])
     model = model.to(device)
 
     # 损失/优化器/调度
     criterion = nn.CrossEntropyLoss()
     
-    # 设置不同的学习率组：ResNet主干使用较低的学习率
-    backbone_params = []
-    other_params = []
-    for name, param in model.named_parameters():
-        if 'feature_extractor' in name:  # ResNet参数
-            backbone_params.append(param)
-        else:
-            other_params.append(param)
-    
-    param_groups = [
-        {'params': backbone_params, 'lr': args.backbone_lr},
-        {'params': other_params, 'lr': args.lr}
-    ]
-    optimizer = optim.Adam(param_groups, weight_decay=args.weight_decay)
+    # 设置优化器：如果冻结backbone，只优化其他参数；否则使用不同的学习率组
+    if args.freeze_backbone:
+        # 只优化非backbone参数
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=args.weight_decay)
+    else:
+        # 设置不同的学习率组：ResNet主干使用较低的学习率
+        backbone_params = []
+        other_params = []
+        for name, param in model.named_parameters():
+            if 'feature_extractor' in name:  # ResNet参数
+                backbone_params.append(param)
+            else:
+                other_params.append(param)
+        
+        param_groups = [
+            {'params': backbone_params, 'lr': args.backbone_lr},
+            {'params': other_params, 'lr': args.lr}
+        ]
+        optimizer = optim.Adam(param_groups, weight_decay=args.weight_decay)
     try:
         optimizer.load_state_dict(checkpoint['optim_state'])
         print("Optimizer state loaded successfully.")
@@ -233,33 +243,43 @@ def main(args):
                                             args.batch_size, shuffle=True, num_workers=args.num_workers)
 
     # 模型
-    modalities = ['rgb'] if args.only_rgb else ['rgb', 'depth', 'infrared']
+    if args.only_rgb:
+        modalities = ['rgb']
+    else:
+        modalities = [mod.strip() for mod in args.modalities.split(',')]
     model = VideoRecognitionModel(num_classes=args.num_classes,
                                   num_frames=args.frames_per_clip,
                                   modalities=modalities,
                                   lstm_hidden_size=args.lstm_hidden_size,
                                   lstm_num_layers=args.lstm_num_layers,
                                   learn_weights=args.learn_weights,
-                                  use_lstm=not args.no_lstm)
+                                  use_lstm=not args.no_lstm,
+                                  freeze_backbone=args.freeze_backbone,
+                                  pretrained_weights_path=args.pretrained_weights_path)
     model = model.to(device)
 
     # 损失/优化器/调度
     criterion = nn.CrossEntropyLoss()
     
-    # 设置不同的学习率组：ResNet主干使用较低的学习率
-    backbone_params = []
-    other_params = []
-    for name, param in model.named_parameters():
-        if 'feature_extractor' in name:  # ResNet参数
-            backbone_params.append(param)
-        else:
-            other_params.append(param)
-    
-    param_groups = [
-        {'params': backbone_params, 'lr': args.backbone_lr},
-        {'params': other_params, 'lr': args.lr}
-    ]
-    optimizer = optim.Adam(param_groups, weight_decay=args.weight_decay)
+    # 设置优化器：如果冻结backbone，只优化其他参数；否则使用不同的学习率组
+    if args.freeze_backbone:
+        # 只优化非backbone参数
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=args.weight_decay)
+    else:
+        # 设置不同的学习率组：ResNet主干使用较低的学习率
+        backbone_params = []
+        other_params = []
+        for name, param in model.named_parameters():
+            if 'feature_extractor' in name:  # ResNet参数
+                backbone_params.append(param)
+            else:
+                other_params.append(param)
+        
+        param_groups = [
+            {'params': backbone_params, 'lr': args.backbone_lr},
+            {'params': other_params, 'lr': args.lr}
+        ]
+        optimizer = optim.Adam(param_groups, weight_decay=args.weight_decay)
     
     # 选择调度器
     if args.scheduler_type == 'plateau' and val_loader is not None:
@@ -358,12 +378,18 @@ if __name__ == "__main__":
     parser.add_argument('--grad_clip', type=float, default=5.0)
     parser.add_argument('--train_full', action='store_true',
                         help='If set, use the full training set and skip validation')
+    parser.add_argument('--modalities', type=str, default='rgb,depth,infrared',
+                        help='Comma-separated list of modalities to use (e.g., "rgb,depth" or "rgb,infrared")')
     parser.add_argument('--only_rgb', action='store_true',
-                        help='If set, use only RGB modality')
+                        help='Deprecated: Use --modalities rgb instead')
     parser.add_argument('--learn_weights', action='store_true',
                         help='Whether to learn modality concatenation weights during training')
     parser.add_argument('--no_lstm', action='store_true', default=False,
                         help='Whether to use LSTM for temporal modeling (default: False). If True, use average pooling.')
+    parser.add_argument('--freeze_backbone', action='store_true',
+                        help='Whether to freeze ResNet backbone parameters (only train classifier)')
+    parser.add_argument('--pretrained_weights_path', type=str, default=None,
+                        help='Path to custom pretrained ResNet weights (.pth file)')
     parser.add_argument('--resume', type=str, default=None,
                         help='Path to checkpoint to resume training from')
     args = parser.parse_args()

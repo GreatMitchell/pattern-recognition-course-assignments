@@ -7,7 +7,7 @@ class FrameFeatureExtractor(nn.Module):
     输入：一批视频片段，形状为 (batch_size, num_frames, C, H, W)
     输出：一批视频特征，形状为 (batch_size, num_frames, feature_dim)
     """
-    def __init__(self, modality='rgb', backbone='resnet18', pretrained=True):
+    def __init__(self, modality='rgb', backbone='resnet18', pretrained=True, freeze_backbone=False, pretrained_weights_path=None):
         super().__init__()
         # 加载预训练的ResNet，并去掉最后的全连接层
         resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT if pretrained else None)
@@ -31,10 +31,30 @@ class FrameFeatureExtractor(nn.Module):
                 if has_bias:
                     resnet.conv1.bias.data.copy_(original_conv1.bias.data)
 
+        # 如果提供了自定义权重路径，加载权重
+        if pretrained_weights_path is not None:
+            print(f"Loading ResNet weights from {pretrained_weights_path}")
+            state_dict = torch.load(pretrained_weights_path, map_location='cpu')
+            # 如果是整个模型的state_dict，提取ResNet部分
+            if 'feature_extractor' in state_dict:
+                # 假设是从FrameFeatureExtractor保存的
+                resnet_state_dict = {k.replace('feature_extractor.', ''): v for k, v in state_dict.items() if k.startswith('feature_extractor.')}
+            else:
+                # 假设是ResNet的state_dict
+                resnet_state_dict = state_dict
+            # 加载权重，允许部分匹配（因为可能有conv1的修改）
+            resnet.load_state_dict(resnet_state_dict, strict=False)
+            print("Custom ResNet weights loaded successfully.")
+
         self.feature_extractor = nn.Sequential(*list(resnet.children())[:-1])  # 保留直到全局池化层
-        # 解冻所有参数以进行完整微调
-        for param in self.feature_extractor.parameters():
-            param.requires_grad = True
+        
+        # 根据参数决定是否冻结ResNet参数
+        if freeze_backbone:
+            for param in self.feature_extractor.parameters():
+                param.requires_grad = False
+        else:
+            for param in self.feature_extractor.parameters():
+                param.requires_grad = True
 
         # ResNet18最终的特征维度是512
         self.feature_dim = 512

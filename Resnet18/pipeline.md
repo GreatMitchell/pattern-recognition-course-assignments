@@ -170,7 +170,7 @@
     Resume training finished. Best val acc: 0.9601293057203293
     ```
 
-- [ ] 支线：验证此模型是否过拟合；采用全量微调后在测试集上再次尝试
+- [x] 支线：验证此模型是否过拟合；采用全量微调后在测试集上再次尝试——成功！
     ```bash
     python -u Resnet18/src/train.py --resume checkpoints_batchsize32_and_no_reg/resnet18_finetune/best.pth --epochs 40 --train_full --only_rgb --ckpt_dir checkpoints_batchsize32_and_no_reg/resnet18_finetune/train_full --frames_per_clip 32 >> log.txt
     ```
@@ -197,4 +197,173 @@
     Epoch 40/40 | Time 184.6s | Train loss 0.0816 acc 1.0000
     Resume training finished. Best train loss: 0.08161398093216121
     ```
+
+- [x] 回归主线：采用支线的预训练Resnet18构建其他模态的独立模型
+    ```bash
+    # infrared
+    python -u Resnet18/src/train.py --freeze_backbone --pretrained_weights_path checkpoints_batchsize32_and_no_reg/resnet18_finetune/train_full/best.pth --epochs 40 --modalities infrared --ckpt_dir checkpoints_batchsize32_and_no_reg/infrared_finetune --frames_per_clip 32 >> log.txt
+    ```
+    红外训练结果：
+    ```text
+    Using device: cuda
+    Loading ResNet weights from checkpoints_batchsize32_and_no_reg/resnet18_finetune/train_full/best.pth
+    Custom ResNet weights loaded successfully.
+    Epoch 1/40 | Time 184.8s | Train loss 2.9329 acc 0.1051 | Val loss 2.9631 acc 0.1767
+    Epoch 2/40 | Time 181.8s | Train loss 2.7899 acc 0.4321 | Val loss 2.9047 acc 0.2002
+    Epoch 3/40 | Time 179.9s | Train loss 2.5914 acc 0.5508 | Val loss 2.7892 acc 0.2939
+    Epoch 4/40 | Time 180.6s | Train loss 2.3104 acc 0.6846 | Val loss 2.6068 acc 0.4582
+    Epoch 5/40 | Time 180.4s | Train loss 1.9912 acc 0.7090 | Val loss 2.3065 acc 0.5294
+    Epoch 6/40 | Time 180.7s | Train loss 1.6336 acc 0.7585 | Val loss 1.9311 acc 0.5450
+    Epoch 7/40 | Time 179.9s | Train loss 1.3386 acc 0.8236 | Val loss 1.5493 acc 0.6880
+    Epoch 8/40 | Time 180.4s | Train loss 1.1064 acc 0.8850 | Val loss 1.3224 acc 0.7772
+    Epoch 9/40 | Time 180.3s | Train loss 0.9773 acc 0.9048 | Val loss 1.1123 acc 0.8405
+    Epoch 10/40 | Time 181.4s | Train loss 0.8891 acc 0.9136 | Val loss 0.9198 acc 0.8882
+    Epoch 11/40 | Time 180.2s | Train loss 0.7856 acc 0.9365 | Val loss 0.8127 acc 0.8882
+    Epoch 12/40 | Time 181.0s | Train loss 0.7065 acc 0.9443 | Val loss 0.7483 acc 0.9116
+    Epoch 13/40 | Time 181.9s | Train loss 0.6280 acc 0.9531 | Val loss 0.6815 acc 0.9203
+    Epoch 14/40 | Time 182.1s | Train loss 0.5592 acc 0.9677 | Val loss 0.6215 acc 0.9359
+    Epoch 15/40 | Time 181.3s | Train loss 0.5195 acc 0.9688 | Val loss 0.5948 acc 0.9281
+    Epoch 16/40 | Time 181.9s | Train loss 0.4762 acc 0.9818 | Val loss 0.5685 acc 0.9515
+    Epoch 17/40 | Time 180.7s | Train loss 0.4509 acc 0.9870 | Val loss 0.5409 acc 0.9515
+    Epoch 18/40 | Time 181.0s | Train loss 0.4261 acc 0.9844 | Val loss 0.5210 acc 0.9437
+    Epoch 19/40 | Time 181.9s | Train loss 0.4039 acc 0.9896 | Val loss 0.5055 acc 0.9515
+    Epoch 20/40 | Time 182.1s | Train loss 0.4083 acc 0.9834 | Val loss 0.4836 acc 0.9593
+    Epoch 21/40 | Time 180.9s | Train loss 0.4118 acc 0.9777 | Val loss 0.4684 acc 0.9515
+    Epoch 22/40 | Time 182.0s | Train loss 0.3542 acc 0.9912 | Val loss 0.4593 acc 0.9437
+    Epoch 23/40 | Time 180.9s | Train loss 0.3618 acc 0.9886 | Val loss 0.4536 acc 0.9593
+    Epoch 24/40 | Time 179.8s | Train loss 0.3442 acc 0.9886 | Val loss 0.4446 acc 0.9515
+    Epoch 25/40 | Time 180.2s | Train loss 0.3284 acc 0.9974 | Val loss 0.4364 acc 0.9593
+    Epoch 26/40 | Time 178.7s | Train loss 0.3237 acc 0.9922 | Val loss 0.4284 acc 0.9593
+    Epoch 27/40 | Time 179.1s | Train loss 0.3129 acc 0.9922 | Val loss 0.4211 acc 0.9515
+    Epoch 28/40 | Time 178.5s | Train loss 0.3017 acc 0.9974 | Val loss 0.4131 acc 0.9593
+    Epoch 29/40 | Time 179.6s | Train loss 0.3079 acc 0.9948 | Val loss 0.4065 acc 0.9593
+    Epoch 30/40 | Time 179.1s | Train loss 0.2897 acc 0.9948 | Val loss 0.4034 acc 0.9593
+    Epoch 31/40 | Time 181.2s | Train loss 0.2840 acc 0.9974 | Val loss 0.3993 acc 0.9593
+    Epoch 32/40 | Time 179.0s | Train loss 0.2829 acc 0.9948 | Val loss 0.3994 acc 0.9593
+    Epoch 33/40 | Time 179.5s | Train loss 0.2815 acc 0.9948 | Val loss 0.3967 acc 0.9593
+    Epoch 34/40 | Time 180.7s | Train loss 0.2800 acc 0.9964 | Val loss 0.3982 acc 0.9593
+    Epoch 35/40 | Time 179.7s | Train loss 0.2726 acc 0.9974 | Val loss 0.3925 acc 0.9593
+    Epoch 36/40 | Time 180.8s | Train loss 0.2711 acc 0.9974 | Val loss 0.3901 acc 0.9593
+    Epoch 37/40 | Time 181.0s | Train loss 0.2810 acc 0.9948 | Val loss 0.3906 acc 0.9593
+    Epoch 38/40 | Time 180.3s | Train loss 0.2649 acc 0.9964 | Val loss 0.3855 acc 0.9593
+    Epoch 39/40 | Time 180.9s | Train loss 0.2659 acc 0.9948 | Val loss 0.3831 acc 0.9593
+    Epoch 40/40 | Time 179.9s | Train loss 0.2737 acc 0.9948 | Val loss 0.3830 acc 0.9593
+    Training finished. Best val acc: 0.9593211263418198
+    ```
+    ```bash
+    # depth
+    python -u Resnet18/src/train.py --freeze_backbone --pretrained_weights_path checkpoints_batchsize32_and_no_reg/resnet18_finetune/train_full/best.pth --epochs 40 --modalities depth --ckpt_dir checkpoints_batchsize32_and_no_reg/depth_finetune --frames_per_clip 32 >> log.txt
+    ```
+    深度训练结果：
+    ```text
+    Loading ResNet weights from checkpoints_batchsize32_and_no_reg/resnet18_finetune/train_full/best.pth
+    Custom ResNet weights loaded successfully.
+    Epoch 1/40 | Time 184.0s | Train loss 2.9647 acc 0.1166 | Val loss 2.9770 acc 0.0555
+    Epoch 2/40 | Time 180.0s | Train loss 2.8474 acc 0.2582 | Val loss 2.9310 acc 0.1837
+    Epoch 3/40 | Time 178.1s | Train loss 2.6931 acc 0.4748 | Val loss 2.8584 acc 0.1915
+    Epoch 4/40 | Time 180.0s | Train loss 2.4814 acc 0.6341 | Val loss 2.7279 acc 0.2400
+    Epoch 5/40 | Time 181.5s | Train loss 2.2097 acc 0.6475 | Val loss 2.5791 acc 0.3112
+    Epoch 6/40 | Time 178.7s | Train loss 1.9263 acc 0.7086 | Val loss 2.3953 acc 0.3925
+    Epoch 7/40 | Time 178.1s | Train loss 1.6443 acc 0.7403 | Val loss 2.0492 acc 0.5294
+    Epoch 8/40 | Time 178.4s | Train loss 1.4331 acc 0.7839 | Val loss 1.6393 acc 0.6670
+    Epoch 9/40 | Time 177.1s | Train loss 1.3155 acc 0.7861 | Val loss 1.3843 acc 0.7069
+    Epoch 10/40 | Time 178.0s | Train loss 1.2153 acc 0.8090 | Val loss 1.2533 acc 0.7530
+    Epoch 11/40 | Time 178.5s | Train loss 1.1125 acc 0.8423 | Val loss 1.1793 acc 0.7452
+    Epoch 12/40 | Time 177.6s | Train loss 1.0496 acc 0.8308 | Val loss 1.1173 acc 0.7702
+    Epoch 13/40 | Time 178.6s | Train loss 0.9245 acc 0.8625 | Val loss 1.0332 acc 0.7936
+    Epoch 14/40 | Time 177.6s | Train loss 0.8673 acc 0.8599 | Val loss 0.9812 acc 0.7608
+    Epoch 15/40 | Time 177.7s | Train loss 0.7962 acc 0.8636 | Val loss 0.9390 acc 0.8015
+    Epoch 16/40 | Time 177.3s | Train loss 0.7564 acc 0.9052 | Val loss 0.9129 acc 0.7936
+    Epoch 17/40 | Time 178.3s | Train loss 0.7317 acc 0.8896 | Val loss 0.8866 acc 0.8015
+    Epoch 18/40 | Time 179.6s | Train loss 0.7059 acc 0.9079 | Val loss 0.8573 acc 0.8171
+    Epoch 19/40 | Time 180.0s | Train loss 0.6853 acc 0.9042 | Val loss 0.8326 acc 0.8015
+    Epoch 20/40 | Time 180.8s | Train loss 0.6571 acc 0.9016 | Val loss 0.8036 acc 0.8093
+    Epoch 21/40 | Time 180.5s | Train loss 0.6369 acc 0.9120 | Val loss 0.7850 acc 0.8093
+    Epoch 22/40 | Time 182.1s | Train loss 0.6034 acc 0.9235 | Val loss 0.7730 acc 0.8093
+    Epoch 23/40 | Time 182.5s | Train loss 0.5770 acc 0.9344 | Val loss 0.7561 acc 0.8171
+    Epoch 24/40 | Time 178.1s | Train loss 0.5866 acc 0.9329 | Val loss 0.7441 acc 0.8015
+    Epoch 25/40 | Time 177.8s | Train loss 0.5788 acc 0.9329 | Val loss 0.7402 acc 0.8171
+    Epoch 26/40 | Time 178.7s | Train loss 0.5622 acc 0.9375 | Val loss 0.7308 acc 0.8171
+    Epoch 27/40 | Time 179.2s | Train loss 0.5572 acc 0.9391 | Val loss 0.7222 acc 0.8257
+    Epoch 28/40 | Time 179.0s | Train loss 0.5487 acc 0.9355 | Val loss 0.7099 acc 0.8499
+    Epoch 29/40 | Time 181.3s | Train loss 0.5232 acc 0.9433 | Val loss 0.7082 acc 0.8249
+    Epoch 30/40 | Time 178.2s | Train loss 0.5277 acc 0.9339 | Val loss 0.7014 acc 0.8570
+    Epoch 31/40 | Time 178.2s | Train loss 0.5151 acc 0.9479 | Val loss 0.6913 acc 0.8499
+    Epoch 32/40 | Time 177.7s | Train loss 0.5238 acc 0.9292 | Val loss 0.6890 acc 0.8656
+    Epoch 33/40 | Time 177.9s | Train loss 0.5100 acc 0.9433 | Val loss 0.6848 acc 0.8734
+    Epoch 34/40 | Time 179.3s | Train loss 0.5013 acc 0.9433 | Val loss 0.6827 acc 0.8499
+    Epoch 35/40 | Time 178.9s | Train loss 0.4992 acc 0.9443 | Val loss 0.6777 acc 0.8499
+    Epoch 36/40 | Time 177.9s | Train loss 0.5014 acc 0.9443 | Val loss 0.6773 acc 0.8578
+    Epoch 37/40 | Time 178.1s | Train loss 0.4976 acc 0.9485 | Val loss 0.6739 acc 0.8578
+    Epoch 38/40 | Time 179.4s | Train loss 0.4823 acc 0.9443 | Val loss 0.6728 acc 0.8656
+    Epoch 39/40 | Time 179.9s | Train loss 0.5031 acc 0.9386 | Val loss 0.6733 acc 0.8656
+    Epoch 40/40 | Time 179.4s | Train loss 0.4933 acc 0.9547 | Val loss 0.6689 acc 0.8578
+    Training finished. Best val acc: 0.8733836263418198
+    ```
+
+- [x] 针对红外图像允许ResNet18微调
+    ```bash
+    python -u Resnet18/src/train.py --resume /root/pattern-recognition-course-assignments/checkpoints_batchsize32_and_no_reg/infrared_finetune/ckpt_epoch40.pth --epochs 60 --modalities infrared --ckpt_dir checkpoints_batchsize32_and_no_reg/infrared_finetune/train_full_and_resnet18_finetune --train_full --frames_per_clip 32 >> log.txt
+    ```
+    结果：
+    ```text
+    Using device: cuda
+    Loaded checkpoint from epoch 40
+    Warning: Optimizer state has different number of parameter groups (likely due to unfreezing backbone). Skipping optimizer state loading.
+    Epoch 41/60 | Time 191.6s | Train loss 0.3305 acc 0.9723
+    Epoch 42/60 | Time 190.9s | Train loss 0.2168 acc 0.9930
+    Epoch 43/60 | Time 183.7s | Train loss 0.1352 acc 0.9980
+    Epoch 44/60 | Time 183.7s | Train loss 0.0964 acc 0.9969
+    Epoch 45/60 | Time 186.3s | Train loss 0.0764 acc 0.9980
+    Epoch 46/60 | Time 188.3s | Train loss 0.0635 acc 0.9980
+    Epoch 47/60 | Time 186.7s | Train loss 0.0573 acc 1.0000
+    Epoch 48/60 | Time 187.4s | Train loss 0.0441 acc 0.9980
+    Epoch 49/60 | Time 187.7s | Train loss 0.0356 acc 1.0000
+    Epoch 50/60 | Time 186.2s | Train loss 0.0331 acc 1.0000
+    Epoch 51/60 | Time 185.9s | Train loss 0.0308 acc 1.0000
+    Epoch 52/60 | Time 186.8s | Train loss 0.0266 acc 1.0000
+    Epoch 53/60 | Time 183.1s | Train loss 0.0260 acc 1.0000
+    Epoch 54/60 | Time 190.1s | Train loss 0.0230 acc 1.0000
+    Epoch 55/60 | Time 190.9s | Train loss 0.0211 acc 1.0000
+    Epoch 56/60 | Time 188.4s | Train loss 0.0198 acc 1.0000
+    Epoch 57/60 | Time 189.1s | Train loss 0.0188 acc 1.0000
+    Epoch 58/60 | Time 188.7s | Train loss 0.0189 acc 1.0000
+    Epoch 59/60 | Time 186.6s | Train loss 0.0180 acc 1.0000
+    Epoch 60/60 | Time 186.8s | Train loss 0.0165 acc 1.0000
+    Resume training finished. Best train loss: 0.01647493604104966
+    ```
+
+- [x] 针对RGB图像继续微调ResNet18，直至Epoch 60
+    ```bash
+    python -u Resnet18/src/train.py --resume /root/pattern-recognition-course-assignments/checkpoints_batchsize32_and_no_reg/resnet18_finetune/train_full/best.pth --epochs 60 --train_full --modalities rgb --ckpt_dir checkpoints_batchsize32_and_no_reg/resnet18_finetune/train_full --frames_per_clip 32 >> log.txt
+    ```
+    结果：
+    ```text
+    Using device: cuda
+    Loaded checkpoint from epoch 40
+    Optimizer state loaded successfully.
+    Epoch 41/60 | Time 190.2s | Train loss 0.0801 acc 1.0000
+    Epoch 42/60 | Time 185.8s | Train loss 0.0772 acc 0.9969
+    Epoch 43/60 | Time 184.5s | Train loss 0.0720 acc 1.0000
+    Epoch 44/60 | Time 185.0s | Train loss 0.0731 acc 1.0000
+    Epoch 45/60 | Time 190.1s | Train loss 0.0667 acc 1.0000
+    Epoch 46/60 | Time 189.2s | Train loss 0.0704 acc 1.0000
+    Epoch 47/60 | Time 191.4s | Train loss 0.0718 acc 1.0000
+    Epoch 48/60 | Time 188.7s | Train loss 0.0656 acc 1.0000
+    Epoch 49/60 | Time 187.0s | Train loss 0.0661 acc 1.0000
+    Epoch 50/60 | Time 190.4s | Train loss 0.0676 acc 1.0000
+    Epoch 51/60 | Time 187.4s | Train loss 0.0654 acc 1.0000
+    Epoch 52/60 | Time 186.9s | Train loss 0.0610 acc 1.0000
+    Epoch 53/60 | Time 184.7s | Train loss 0.0615 acc 1.0000
+    Epoch 54/60 | Time 183.7s | Train loss 0.0633 acc 1.0000
+    Epoch 55/60 | Time 184.5s | Train loss 0.0605 acc 1.0000
+    Epoch 56/60 | Time 184.3s | Train loss 0.0607 acc 1.0000
+    Epoch 57/60 | Time 184.9s | Train loss 0.0641 acc 1.0000
+    Epoch 58/60 | Time 183.3s | Train loss 0.0601 acc 1.0000
+    Epoch 59/60 | Time 183.9s | Train loss 0.0627 acc 1.0000
+    Epoch 60/60 | Time 182.8s | Train loss 0.0575 acc 1.0000
+    Resume training finished. Best train loss: 0.057495471090078354
+    ```
+
+    
 - - -
