@@ -371,17 +371,188 @@
 - [x] 检查深度图像的质量
     检查结果请参见[结果文件](../depth_check.txt)。
 
-> 备注：从此开始checkpoints已移动到数据盘`/root/autodl-tmp/`中。
+> 备注：从下面开始checkpoints已移动到数据盘`/root/autodl-tmp/`中。
 
-- [ ] 晚期融合的更多权重尝试
+- [x] 晚期融合的更多权重尝试
+    
+    |权重`rgb, infrared`|测试集得分|
+    |:---:|:---:|
+    |`0.5, 0.5`|78.5|
+    |`0.45, 0.55`|79|
+    |`0.4, 0.6`|79.5|
+    |`0.35, 0.65`|81|
+    |`0.3, 0.7`|80.5|
+
+> 备注：从下面开始[`train.py`](../Resnet18/src/train.py)的调用参数`--pretrained_weights_paths`发生了变化，并且在LSTM中增加了dropout层。从前的命令可能无法执行。
 
 - [ ] 中期融合：特征直接拼接
     ```bash
     python -u Resnet18/src/train.py --pretrained_weights_paths rgb:/root/autodl-tmp/checkpoints_batchsize32_and_no_reg/resnet18_finetune/train_full/best.pth,infrared:/root/autodl-tmp/checkpoints_batchsize32_and_no_reg/infrared_finetune/train_full_and_resnet18_finetune/best.pth --epochs 30 --train_full --modalities rgb,infrared --ckpt_dir /root/autodl-tmp/checkpoints_concat_train_full --frames_per_clip 32 --freeze_backbone >> log.txt
     ```
+    结果：
+    ```
+    Using device: cuda
+    Loading ResNet weights from /root/autodl-tmp/checkpoints_batchsize32_and_no_reg/resnet18_finetune/train_full/best.pth
+    Custom ResNet weights loaded successfully.
+    Loading ResNet weights from /root/autodl-tmp/checkpoints_batchsize32_and_no_reg/infrared_finetune/train_full_and_resnet18_finetune/best.pth
+    Custom ResNet weights loaded successfully.
+    Epoch 1/30 | Time 183.5s | Train loss 2.9202 acc 0.1227
+    Epoch 2/30 | Time 181.2s | Train loss 2.7185 acc 0.4078
+    Epoch 3/30 | Time 180.5s | Train loss 2.4666 acc 0.5691
+    Epoch 4/30 | Time 178.5s | Train loss 2.1507 acc 0.6363
+    Epoch 5/30 | Time 178.3s | Train loss 1.8448 acc 0.7031
+    Epoch 6/30 | Time 178.5s | Train loss 1.5092 acc 0.7805
+    Epoch 7/30 | Time 180.2s | Train loss 1.2495 acc 0.8477
+    Epoch 8/30 | Time 179.0s | Train loss 1.0649 acc 0.8777
+    Epoch 9/30 | Time 178.9s | Train loss 0.9606 acc 0.8781
+    Epoch 10/30 | Time 178.0s | Train loss 0.8745 acc 0.8957
+    Epoch 11/30 | Time 178.0s | Train loss 0.7759 acc 0.9129
+    Epoch 12/30 | Time 177.8s | Train loss 0.7086 acc 0.9156
+    Epoch 13/30 | Time 180.6s | Train loss 0.6434 acc 0.9375
+    Epoch 14/30 | Time 179.1s | Train loss 0.5893 acc 0.9352
+    Epoch 15/30 | Time 180.8s | Train loss 0.5641 acc 0.9531
+    Epoch 16/30 | Time 179.2s | Train loss 0.5108 acc 0.9566
+    Epoch 17/30 | Time 181.0s | Train loss 0.4881 acc 0.9492
+    Epoch 18/30 | Time 180.6s | Train loss 0.4787 acc 0.9539
+    Epoch 19/30 | Time 177.8s | Train loss 0.4342 acc 0.9605
+    Epoch 20/30 | Time 179.0s | Train loss 0.4245 acc 0.9559
+    Epoch 21/30 | Time 178.4s | Train loss 0.4122 acc 0.9598
+    Epoch 22/30 | Time 179.3s | Train loss 0.4102 acc 0.9648
+    Epoch 23/30 | Time 180.1s | Train loss 0.3932 acc 0.9664
+    Epoch 24/30 | Time 180.7s | Train loss 0.3940 acc 0.9715
+    Epoch 25/30 | Time 180.1s | Train loss 0.3732 acc 0.9656
+    Epoch 26/30 | Time 180.5s | Train loss 0.3547 acc 0.9688
+    Epoch 27/30 | Time 180.7s | Train loss 0.3501 acc 0.9746
+    Epoch 28/30 | Time 182.6s | Train loss 0.3499 acc 0.9707
+    Epoch 29/30 | Time 187.4s | Train loss 0.3389 acc 0.9668
+    Epoch 30/30 | Time 184.6s | Train loss 0.3364 acc 0.9766
+    Training finished. Best train loss: 0.3364197416231036
+    ```
+    进行测试：
+    ```python
+    from predict import mid_fusion_predict
+    mid_fusion_predict(checkpoint_path='/root/autodl-tmp/checkpoints_concat_train_full/best.pth')
+    ```
 
 - [ ] 中期融合：特征加权拼接
     ```bash
     python -u Resnet18/src/train.py --pretrained_weights_paths rgb:/root/autodl-tmp/checkpoints_batchsize32_and_no_reg/resnet18_finetune/train_full/best.pth,infrared:/root/autodl-tmp/checkpoints_batchsize32_and_no_reg/infrared_finetune/train_full_and_resnet18_finetune/best.pth --epochs 30 --train_full --modalities rgb,infrared --ckpt_dir /root/autodl-tmp/checkpoints_weighted_concat_train_full --frames_per_clip 32 --freeze_backbone --learn_weights >> log.txt
+    ```
+    结果：
+    ```
+    Using device: cuda
+    Loading ResNet weights from /root/autodl-tmp/checkpoints_batchsize32_and_no_reg/resnet18_finetune/train_full/best.pth
+    Custom ResNet weights loaded successfully.
+    Loading ResNet weights from /root/autodl-tmp/checkpoints_batchsize32_and_no_reg/infrared_finetune/train_full_and_resnet18_finetune/best.pth
+    Custom ResNet weights loaded successfully.
+    Epoch 1/30 | Time 184.6s | Train loss 2.9363 acc 0.1316
+    Epoch 2/30 | Time 181.2s | Train loss 2.7260 acc 0.4137
+    Epoch 3/30 | Time 180.9s | Train loss 2.4627 acc 0.5508
+    Epoch 4/30 | Time 180.4s | Train loss 2.1380 acc 0.6555
+    Epoch 5/30 | Time 178.6s | Train loss 1.8175 acc 0.7320
+    Epoch 6/30 | Time 179.9s | Train loss 1.5278 acc 0.7785
+    Epoch 7/30 | Time 178.7s | Train loss 1.2700 acc 0.8336
+    Epoch 8/30 | Time 179.7s | Train loss 1.0795 acc 0.8574
+    Epoch 9/30 | Time 179.4s | Train loss 0.9955 acc 0.8797
+    Epoch 10/30 | Time 179.2s | Train loss 0.8869 acc 0.9008
+    Epoch 11/30 | Time 180.4s | Train loss 0.8128 acc 0.9227
+    Epoch 12/30 | Time 180.5s | Train loss 0.7292 acc 0.9156
+    Epoch 13/30 | Time 179.9s | Train loss 0.6739 acc 0.9363
+    Epoch 14/30 | Time 179.9s | Train loss 0.6091 acc 0.9469
+    Epoch 15/30 | Time 180.1s | Train loss 0.5797 acc 0.9410
+    Epoch 16/30 | Time 178.7s | Train loss 0.5273 acc 0.9473
+    Epoch 17/30 | Time 178.5s | Train loss 0.4853 acc 0.9590
+    Epoch 18/30 | Time 179.0s | Train loss 0.4846 acc 0.9617
+    Epoch 19/30 | Time 179.0s | Train loss 0.4625 acc 0.9535
+    Epoch 20/30 | Time 179.2s | Train loss 0.4537 acc 0.9645
+    Epoch 21/30 | Time 180.2s | Train loss 0.4085 acc 0.9668
+    Epoch 22/30 | Time 178.7s | Train loss 0.4135 acc 0.9676
+    Epoch 23/30 | Time 180.1s | Train loss 0.4025 acc 0.9598
+    Epoch 24/30 | Time 184.2s | Train loss 0.3929 acc 0.9688
+    Epoch 25/30 | Time 184.7s | Train loss 0.3985 acc 0.9746
+    Epoch 26/30 | Time 183.5s | Train loss 0.3780 acc 0.9746
+    Epoch 27/30 | Time 181.3s | Train loss 0.3819 acc 0.9727
+    Epoch 28/30 | Time 183.2s | Train loss 0.3637 acc 0.9723
+    Epoch 29/30 | Time 183.8s | Train loss 0.3571 acc 0.9746
+    Epoch 30/30 | Time 181.8s | Train loss 0.3582 acc 0.9727
+    Training finished. Best train loss: 0.35705300606787205
+    ```
+    进行测试：
+    ```python
+    from predict import mid_fusion_predict
+    mid_fusion_predict(checkpoint_path='/root/autodl-tmp/checkpoints_weighted_concat_train_full/best.pth')
+    ```
+
+- [ ] 中期融合：特征直接拼接 + 微调两个ResNet18主干
+    ```bash
+    python -u Resnet18/src/train.py --resume /root/autodl-tmp/checkpoints_concat_train_full/best.pth --epochs 50 --train_full --modalities rgb,infrared --ckpt_dir /root/autodl-tmp/checkpoints_concat_train_full/resnet18_finetune --frames_per_clip 32 --batch_size 16 >> log.txt
+    ```
+    结果：
+    ```text
+    Using device: cuda
+    Loaded checkpoint from epoch 30
+    Warning: Optimizer state has different number of parameter groups (likely due to unfreezing backbone). Skipping optimizer state loading.
+    Epoch 31/50 | Time 140.0s | Train loss 0.4304 acc 0.9473
+    Epoch 32/50 | Time 138.3s | Train loss 0.3217 acc 0.9746
+    Epoch 33/50 | Time 140.0s | Train loss 0.2307 acc 0.9688
+    Epoch 34/50 | Time 139.7s | Train loss 0.1730 acc 0.9902
+    Epoch 35/50 | Time 139.1s | Train loss 0.1365 acc 0.9922
+    Epoch 36/50 | Time 138.6s | Train loss 0.0800 acc 0.9961
+    Epoch 37/50 | Time 137.6s | Train loss 0.0637 acc 0.9941
+    Epoch 38/50 | Time 139.1s | Train loss 0.0539 acc 0.9980
+    Epoch 39/50 | Time 138.4s | Train loss 0.0417 acc 1.0000
+    Epoch 40/50 | Time 138.2s | Train loss 0.0494 acc 0.9961
+    Epoch 41/50 | Time 139.2s | Train loss 0.0325 acc 1.0000
+    Epoch 42/50 | Time 138.1s | Train loss 0.0292 acc 0.9980
+    Epoch 43/50 | Time 138.9s | Train loss 0.0241 acc 1.0000
+    Epoch 44/50 | Time 138.3s | Train loss 0.0225 acc 1.0000
+    Epoch 45/50 | Time 138.7s | Train loss 0.0218 acc 1.0000
+    Epoch 46/50 | Time 137.6s | Train loss 0.0204 acc 1.0000
+    Epoch 47/50 | Time 139.5s | Train loss 0.0157 acc 1.0000
+    Epoch 48/50 | Time 135.3s | Train loss 0.0310 acc 0.9922
+    Epoch 49/50 | Time 135.8s | Train loss 0.0180 acc 1.0000
+    Epoch 50/50 | Time 140.1s | Train loss 0.0159 acc 1.0000
+    ```
+    进行测试：
+    ```python
+    from predict import mid_fusion_predict
+    mid_fusion_predict(checkpoint_path='/root/autodl-tmp/checkpoints_concat_train_full/resnet18_finetune/best.pth')
+    ```
+
+- [ ] 中期融合：特征加权拼接 + 微调两个ResNet18主干
+    ```bash
+    python -u Resnet18/src/train.py --resume /root/autodl-tmp/checkpoints_weighted_concat_train_full/best.pth --epochs 50 --train_full --modalities rgb,infrared --ckpt_dir /root/autodl-tmp/checkpoints_weighted_concat_train_full/resnet18_finetune --frames_per_clip 32 --learn_weights --batch_size 16  >> log.txt
+    ```
+    ```text
+    Using device: cuda
+    Loaded checkpoint from epoch 29
+    Warning: Optimizer state has different number of parameter groups (likely due to unfreezing backbone). Skipping optimizer state loading.
+    Epoch 30/50 | Time 142.2s | Train loss 0.4926 acc 0.9473
+    Epoch 31/50 | Time 140.5s | Train loss 0.3459 acc 0.9668
+    Epoch 32/50 | Time 137.8s | Train loss 0.2373 acc 0.9883
+    Epoch 33/50 | Time 137.7s | Train loss 0.2018 acc 0.9844
+    Epoch 34/50 | Time 136.9s | Train loss 0.1201 acc 0.9961
+    Epoch 35/50 | Time 137.0s | Train loss 0.0963 acc 0.9941
+    Epoch 36/50 | Time 136.0s | Train loss 0.0603 acc 0.9980
+    Epoch 37/50 | Time 137.3s | Train loss 0.0517 acc 0.9980
+    Epoch 38/50 | Time 139.3s | Train loss 0.0434 acc 1.0000
+    Epoch 39/50 | Time 137.4s | Train loss 0.0434 acc 0.9980
+    Epoch 40/50 | Time 137.6s | Train loss 0.0285 acc 0.9980
+    Epoch 41/50 | Time 137.9s | Train loss 0.0276 acc 1.0000
+    Epoch 42/50 | Time 135.6s | Train loss 0.0219 acc 1.0000
+    Epoch 43/50 | Time 137.8s | Train loss 0.0538 acc 0.9844
+    Epoch 44/50 | Time 136.0s | Train loss 0.0194 acc 1.0000
+    Epoch 45/50 | Time 137.2s | Train loss 0.0244 acc 0.9980
+    Epoch 46/50 | Time 137.6s | Train loss 0.0183 acc 1.0000
+    Epoch 47/50 | Time 137.2s | Train loss 0.0191 acc 1.0000
+    Epoch 48/50 | Time 137.0s | Train loss 0.0149 acc 1.0000
+    Epoch 49/50 | Time 135.9s | Train loss 0.0180 acc 1.0000
+    Epoch 50/50 | Time 131.4s | Train loss 0.0131 acc 1.0000
+    Resume training finished. Best train loss: 0.013100589814712293
+    ```
+    进行测试：
+    ```python
+    from predict import mid_fusion_predict
+    mid_fusion_predict(checkpoint_path='/root/autodl-tmp/checkpoints_weighted_concat_train_full/resnet18_finetune/best.pth')
     ```
 - - -

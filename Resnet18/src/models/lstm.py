@@ -46,7 +46,7 @@ class VideoRecognitionModel(nn.Module):
         
         # 分类头
         self.classifier = nn.Sequential(
-            nn.Dropout(0.5), 
+            nn.Dropout(0.5),  # XXX：注意，仅在中期融合及其后的融合中启用
             nn.Linear(classifier_input_dim, 128),
             nn.ReLU(),
             nn.Linear(128, num_classes)

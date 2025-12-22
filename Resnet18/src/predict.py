@@ -29,6 +29,72 @@ def load_single_modality_model(checkpoint_path, modality):
     model.eval()  # 切换到评估模式
     return model
 
+def load_multi_modality_model(checkpoint_path, modalities, pretrained_weights_paths=None):
+    """
+    加载多模态模型（中期融合）
+    
+    参数:
+    checkpoint_path (str): 模型检查点的路径。
+    modalities (list of str): 要使用的模态列表，如 ['rgb', 'infrared']。
+    pretrained_weights_paths (dict): 各模态的预训练权重路径字典。
+    
+    返回:
+    model: 加载的模型。
+    """
+    model = VideoRecognitionModel(num_classes=20, modalities=modalities, use_lstm=True, pretrained_weights_paths=pretrained_weights_paths).to(device)
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    if isinstance(checkpoint, dict) and 'model_state' in checkpoint:
+        state_dict = checkpoint['model_state']
+    else:
+        state_dict = checkpoint  # 可能直接是 state_dict
+
+    model.load_state_dict(state_dict)
+    model.eval()  # 切换到评估模式
+    return model
+
+def mid_fusion_predict(checkpoint_path, modalities=['rgb', 'infrared'], pretrained_weights_paths=None):
+    """
+    使用中期融合策略进行预测（特征级别拼接模态）。
+    
+    参数:
+    checkpoint_path (str): 多模态模型检查点的路径。
+    modalities (list of str): 要使用的模态列表。支持 'rgb', 'depth', 'infrared'。
+    pretrained_weights_paths (dict): 各模态的预训练权重路径字典，如 {'rgb': 'path/to/rgb.pth', 'infrared': 'path/to/ir.pth'}。
+    
+    返回:
+    无，直接将结果写入 submission.csv。
+    """
+    if modalities is None or len(modalities) == 0:
+        raise ValueError("Modalities must be specified for mid-fusion prediction.")
+    
+    # 验证模态
+    supported_modalities = {'rgb', 'depth', 'infrared'}
+    for mod in modalities:
+        if mod not in supported_modalities:
+            raise ValueError(f"Unsupported modality: {mod}. Supported modalities are: {supported_modalities}")
+    
+    # 加载多模态模型
+    model = load_multi_modality_model(checkpoint_path, modalities, pretrained_weights_paths)
+    
+    # 清空submission.csv文件
+    with open('submission.csv', 'w') as f:
+        f.write("sample_id,prediction\n")  # 写入表头
+
+    for i, batch in enumerate(test_loader):
+        rgb = batch['rgb'].to(device)
+        depth = batch['depth'].to(device) if 'depth' in modalities else None
+        infrared = batch['infrared'].to(device) if 'infrared' in modalities else None
+        lengths = batch['lengths']
+        sample_id = batch['ids'][0]
+        
+        with torch.no_grad():
+            logits = model(rgb, depth, infrared, lengths=lengths)
+            pred = logits.argmax(dim=1).item()
+        
+        # 保存 (sample_id, pred) 到结果文件
+        with open('submission.csv', 'a') as f:
+            f.write(f"{sample_id},{pred}\n")
+
 def predict(checkpoint_path, modalities=['rgb']):
     """
     使用指定的模型检查点和模态对测试数据进行预测。
