@@ -8,11 +8,12 @@ class VideoRecognitionModel(nn.Module):
     完整的视频识别模型：2D CNN提取帧特征 + LSTM建模时序
     支持单模态（RGB）或三模态（RGB+Depth+Infrared）拼接
     """
-    def __init__(self, num_classes=20, num_frames=10, lstm_hidden_size=256, lstm_num_layers=1, modalities=['rgb'], learn_weights=False, use_lstm=True, freeze_backbone=False, pretrained_weights_paths=None):
+    def __init__(self, num_classes=20, num_frames=10, lstm_hidden_size=256, lstm_num_layers=1, modalities=['rgb'], learn_weights=False, use_lstm=True, freeze_backbone=False, pretrained_weights_paths=None, use_attention=False):
         super().__init__()
         self.modalities = modalities  # 支持 ['rgb'], ['rgb','depth','infrared'] 等
         self.learn_weights = learn_weights
         self.use_lstm = use_lstm
+        self.use_attention = use_attention
         
         # 视觉特征提取器（根据模态初始化）
         self.backbones = nn.ModuleDict()
@@ -29,10 +30,19 @@ class VideoRecognitionModel(nn.Module):
         else:
             self.weights = None
         
+        # 注意力模块（如果启用）
+        if use_attention:
+            self.attention_mlp = nn.Sequential(
+                nn.Linear(self.feature_dim, 128),
+                nn.ReLU(),
+                nn.Linear(128, len(modalities)),
+                nn.Softmax(dim=-1)
+            )
+        
         if use_lstm:
             # 时序建模层（LSTM）
             self.lstm = nn.LSTM(
-                input_size=self.feature_dim,  # 拼接后的总特征维度
+                input_size=self.backbones[modalities[0]].feature_dim if use_attention else self.feature_dim,  # 如果注意力，输入是单模态特征维度
                 hidden_size=lstm_hidden_size,
                 num_layers=lstm_num_layers,
                 batch_first=True,
@@ -42,11 +52,11 @@ class VideoRecognitionModel(nn.Module):
         else:
             # 简单平均池化：直接对时间维度平均
             self.lstm = None  # 不使用LSTM
-            classifier_input_dim = self.feature_dim
+            classifier_input_dim = self.backbones[modalities[0]].feature_dim if use_attention else self.feature_dim
         
         # 分类头
         self.classifier = nn.Sequential(
-            nn.Dropout(0.5),  # XXX：注意，仅在中期融合及其后的融合中启用
+            nn.Dropout(0.5),  # 注意，仅在中期融合及其后的融合中启用
             nn.Linear(classifier_input_dim, 128),
             nn.ReLU(),
             nn.Linear(128, num_classes)
@@ -71,7 +81,7 @@ class VideoRecognitionModel(nn.Module):
         else:
             weight_tensor = torch.ones(len(self.modalities), dtype=torch.float32, device=rgb_clip.device)
         
-        # 1. 提取各模态帧特征并加权拼接
+        # 1. 提取各模态帧特征并加权
         features_list = []
         mod_idx = 0
         if 'rgb' in self.modalities:
@@ -87,7 +97,24 @@ class VideoRecognitionModel(nn.Module):
             features_list.append(feat)
             mod_idx += 1
         
-        combined_features = torch.cat(features_list, dim=2)  # (B, T, feature_dim)
+        if self.use_attention:
+            # 注意力融合：拼接特征，计算注意力权重，加权相加
+            combined_features = torch.cat(features_list, dim=2)  # (B, T, feature_dim)
+            attention_weights = self.attention_mlp(combined_features)  # (B, T, len(modalities))
+            
+            # 加权各模态特征
+            weighted_features = []
+            for i, feat in enumerate(features_list):
+                weight = attention_weights[:, :, i:i+1]  # (B, T, 1)
+                weighted_feat = feat * weight
+                weighted_features.append(weighted_feat)
+            
+            # 相加融合
+            fused_features = sum(weighted_features)  # (B, T, single_feature_dim)
+            combined_features = fused_features
+        else:
+            # 正常拼接
+            combined_features = torch.cat(features_list, dim=2)  # (B, T, feature_dim)
 
         # 2. 时序建模：LSTM 或 平均池化
         if self.use_lstm:

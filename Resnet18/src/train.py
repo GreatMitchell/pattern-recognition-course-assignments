@@ -138,7 +138,8 @@ def resume_training(ckpt_path, args):
                                   learn_weights=args.learn_weights,
                                   use_lstm=not args.no_lstm,
                                   freeze_backbone=args.freeze_backbone,
-                                  pretrained_weights_paths=pretrained_weights_paths)
+                                  pretrained_weights_paths=pretrained_weights_paths,
+                                  use_attention=args.use_attention)
     model.load_state_dict(checkpoint['model_state'])
     model = model.to(device)
 
@@ -275,7 +276,8 @@ def main(args):
                                   learn_weights=args.learn_weights,
                                   use_lstm=not args.no_lstm,
                                   freeze_backbone=args.freeze_backbone,
-                                  pretrained_weights_paths=pretrained_weights_paths)
+                                  pretrained_weights_paths=pretrained_weights_paths,
+                                  use_attention=args.use_attention)
     model = model.to(device)
 
     # 损失/优化器/调度
@@ -404,6 +406,8 @@ if __name__ == "__main__":
                         help='Deprecated: Use --modalities rgb instead')
     parser.add_argument('--learn_weights', action='store_true',
                         help='Whether to learn modality concatenation weights during training')
+    parser.add_argument('--use_attention', action='store_true',
+                        help='Whether to use attention mechanism for modality fusion')
     parser.add_argument('--no_lstm', action='store_true', default=False,
                         help='Whether to use LSTM for temporal modeling (default: False). If True, use average pooling.')
     parser.add_argument('--freeze_backbone', action='store_true',
