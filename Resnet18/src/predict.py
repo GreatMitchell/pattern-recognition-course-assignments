@@ -29,7 +29,7 @@ def load_single_modality_model(checkpoint_path, modality):
     model.eval()  # 切换到评估模式
     return model
 
-def load_multi_modality_model(checkpoint_path, modalities, learn_weights=False, pretrained_weights_paths=None):
+def load_multi_modality_model(checkpoint_path, modalities, learn_weights=False, pretrained_weights_paths=None, use_attention=False):
     """
     加载多模态模型（中期融合）
     
@@ -41,7 +41,7 @@ def load_multi_modality_model(checkpoint_path, modalities, learn_weights=False, 
     返回:
     model: 加载的模型。
     """
-    model = VideoRecognitionModel(num_classes=20, modalities=modalities, use_lstm=True, learn_weights=learn_weights, pretrained_weights_paths=pretrained_weights_paths).to(device)
+    model = VideoRecognitionModel(num_classes=20, modalities=modalities, use_lstm=True, learn_weights=learn_weights, pretrained_weights_paths=pretrained_weights_paths, use_attention=use_attention).to(device)
     checkpoint = torch.load(checkpoint_path, map_location=device)
     if isinstance(checkpoint, dict) and 'model_state' in checkpoint:
         state_dict = checkpoint['model_state']
@@ -52,7 +52,7 @@ def load_multi_modality_model(checkpoint_path, modalities, learn_weights=False, 
     model.eval()  # 切换到评估模式
     return model
 
-def mid_fusion_predict(checkpoint_path, modalities=['rgb', 'infrared'], learn_weights=False, pretrained_weights_paths=None):
+def mid_fusion_predict(checkpoint_path, modalities=['rgb', 'infrared'], learn_weights=False, pretrained_weights_paths=None, use_attention=False):
     """
     使用中期融合策略进行预测（特征级别拼接模态）。
     
@@ -74,7 +74,7 @@ def mid_fusion_predict(checkpoint_path, modalities=['rgb', 'infrared'], learn_we
             raise ValueError(f"Unsupported modality: {mod}. Supported modalities are: {supported_modalities}")
     
     # 加载多模态模型
-    model = load_multi_modality_model(checkpoint_path, modalities, learn_weights, pretrained_weights_paths)
+    model = load_multi_modality_model(checkpoint_path, modalities, learn_weights, pretrained_weights_paths, use_attention)
     
     # 清空submission.csv文件
     with open('submission.csv', 'w') as f:
