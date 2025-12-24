@@ -599,7 +599,7 @@
     ```
     测试：55轮以后过拟合。最佳是epoch55在测试集上的84分。
 
-- [ ] 注意力融合：
+- [x] 注意力融合：
     ```bash
     python -u Resnet18/src/train.py --pretrained_weights_paths rgb:/root/autodl-tmp/checkpoints_batchsize32_and_no_reg/resnet18_finetune/train_full/best.pth,infrared:/root/autodl-tmp/checkpoints_batchsize32_and_no_reg/infrared_finetune/train_full_and_resnet18_finetune/best.pth --epochs 30 --train_full --modalities rgb,infrared --ckpt_dir /root/autodl-tmp/checkpoints_attention_train_full --frames_per_clip 32 --freeze_backbone --use_attention >> log.txt
     ```
@@ -644,7 +644,7 @@
     Training finished. Best train loss: 0.31700571812689304
     ```
 
-- [ ] 注意力融合：微调两个ResNet18主干
+- [x] 注意力融合：微调两个ResNet18主干
     ```bash
     python -u Resnet18/src/train.py --resume /root/autodl-tmp/checkpoints_attention_train_full/best.pth --epochs 50 --train_full --modalities rgb,infrared --ckpt_dir /root/autodl-tmp/checkpoints_attention_train_full/resnet18_finetune --frames_per_clip 32 --batch_size 16 --use_attention >> log.txt
     ```

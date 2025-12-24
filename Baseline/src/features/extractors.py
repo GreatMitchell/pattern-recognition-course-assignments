@@ -94,7 +94,7 @@ class FeatureExtractor:
         
         return np.concatenate([rgb_features_list, depth_features_list, infrared_features_list], axis=1)
 
-    def extract_features_parallel(self, sample_list, modality, frames_per_sample=10, n_workers=None):
+    def extract_features_parallel(self, sample_list, modality, frames_per_sample=32, n_workers=None):
         """
         并行提取特征。
 
@@ -123,7 +123,7 @@ class FeatureExtractor:
         
         return results
 
-    def process_single_sample(self, sample_path, modality, frames_per_sample=10):
+    def process_single_sample(self, sample_path, modality, frames_per_sample=32):
         """
         处理单个样本的入口函数，用于并行化。
 
@@ -153,7 +153,7 @@ class FeatureExtractor:
         # 4. 聚合帧特征为样本特征（而不是保留所有帧）
         return self.aggregate_frame_features(sample_features)
 
-    def sample_key_frames(self, frame_paths, n=10):
+    def sample_key_frames(self, frame_paths, n=32):
         """
         均匀采样关键帧。
 
